@@ -1,8 +1,16 @@
+# Dependencies
 node_modules/
-uploads/
-outputs/
-temp/
+
+# Logs & Environment
 *.log
 .env
 .DS_Store
 Thumbs.db
+
+# Keep folders structure in git while ignoring dynamic runtime files
+uploads/*
+!uploads/.gitkeep
+outputs/*
+!outputs/.gitkeep
+temp/*
+!temp/.gitkeep
