@@ -40,7 +40,16 @@
 - **FFmpeg** (opsional, untuk pemisahan dasar) ([Download](https://ffmpeg.org))
 - **Python 3.8+** (opsional, untuk AI Demucs) ([Download](https://python.org))
 
-### Langkah Instalasi
+### Cara Cepat (Windows 1-Click Run)
+Cukup klik dua kali berkas **`start.bat`**!
+Berkas ini akan:
+1. Memeriksa apakah **Node.js** sudah terpasang (jika belum, otomatis mengarahkan ke halaman download resmi).
+2. Memeriksa & mengunduh dependensi (`node_modules`) secara otomatis jika belum ada.
+3. Menjalankan server dan otomatis membuka aplikasi di browser Anda di `http://localhost:3000`.
+
+---
+
+### Langkah Manual
 
 1. **Clone repository**
 ```bash
@@ -56,6 +65,10 @@ npm install
 3. **Jalankan aplikasi**
 ```bash
 npm start
+```
+atau
+```bash
+start.bat
 ```
 
 4. **Buka di browser**
