@@ -953,27 +953,64 @@ img {
 }
 
 .master-play-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  height: 44px;
+  padding: 0 18px 0 14px;
+  border-radius: var(--radius-full);
   background: var(--gradient-primary);
   color: white;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
   transition: var(--transition-fast);
   cursor: pointer;
   flex-shrink: 0;
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .master-play-btn:hover {
-  transform: scale(1.06);
+  transform: scale(1.05);
+}
+
+.master-play-btn.playing {
+  background: linear-gradient(135deg, #EF4444 0%, #F59E0B 100%);
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
 }
 
 .master-play-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
+}
+
+.master-btn-label {
+  letter-spacing: 0.02em;
+}
+
+.master-stop-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.master-stop-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--error);
+  border-color: var(--error);
+  transform: scale(1.08);
+}
+
+.master-stop-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .mixer-time {
@@ -1217,6 +1254,17 @@ img {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.track-btn.play-btn:hover {
+  transform: scale(1.1);
+}
+
+.track-btn.play-btn.playing {
+  background: linear-gradient(135deg, #EF4444 0%, #F59E0B 100%);
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.4);
 }
 
 .track-btn.play-btn svg {

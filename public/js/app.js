@@ -45,6 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsSubtitle: document.getElementById('resultsSubtitle'),
     masterMixer: document.getElementById('masterMixer'),
     masterPlayBtn: document.getElementById('masterPlayBtn'),
+    masterBtnLabel: document.getElementById('masterBtnLabel'),
+    masterStopBtn: document.getElementById('masterStopBtn'),
     currentTime: document.getElementById('currentTime'),
     totalDuration: document.getElementById('totalDuration'),
     masterScrubber: document.getElementById('masterScrubber'),
@@ -160,6 +162,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Master Mixer Controls
     if (els.masterPlayBtn) {
       els.masterPlayBtn.addEventListener('click', toggleMasterPlay);
+    }
+
+    if (els.masterStopBtn) {
+      els.masterStopBtn.addEventListener('click', stopAllTracks);
     }
 
     if (els.masterScrubber) {
@@ -588,8 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     primAudio.addEventListener('ended', () => {
-      pauseAllTracks();
-      seekAllTracks(0);
+      stopAllTracks();
     });
   }
 
@@ -610,6 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
       t.audio.playbackRate = state.tempo;
       applyVolume(t);
       t.card.classList.add('playing');
+      updateTrackButtonIcon(t, true);
       promises.push(t.audio.play().catch(() => {}));
     });
 
@@ -623,24 +629,46 @@ document.addEventListener('DOMContentLoaded', () => {
     Object.values(state.tracks).forEach(t => {
       t.audio.pause();
       t.card.classList.remove('playing');
+      updateTrackButtonIcon(t, false);
     });
     state.isPlaying = false;
     updateMasterPlayButton(false);
   }
 
-  function toggleTrackPlay(trackName) {
-    const track = state.tracks[trackName];
-    if (!track) return;
+  function stopAllTracks() {
+    pauseAllTracks();
+    seekAllTracks(0);
+    if (els.masterScrubber) els.masterScrubber.value = 0;
+    if (els.currentTime) els.currentTime.textContent = '00:00';
+  }
 
-    if (!state.isPlaying) {
-      toggleSolo(trackName);
-      playAllTracks();
+  function toggleTrackPlay(trackName) {
+    if (state.isPlaying) {
+      pauseAllTracks();
     } else {
-      if (state.soloTrack === trackName) {
-        toggleSolo(trackName);
-      } else {
-        toggleSolo(trackName);
-      }
+      playAllTracks();
+    }
+  }
+
+  function updateTrackButtonIcon(trackObj, isPlaying) {
+    if (!trackObj || !trackObj.playBtn) return;
+    if (isPlaying) {
+      trackObj.playBtn.classList.add('playing');
+      trackObj.playBtn.setAttribute('title', 'Jeda / Pause (Klik untuk jeda)');
+      trackObj.playBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16"/>
+          <rect x="14" y="4" width="4" height="16"/>
+        </svg>
+      `;
+    } else {
+      trackObj.playBtn.classList.remove('playing');
+      trackObj.playBtn.setAttribute('title', 'Putar / Play (Klik untuk putar)');
+      trackObj.playBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      `;
     }
   }
 
@@ -658,12 +686,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!els.masterPlayBtn) return;
     const playIcon = els.masterPlayBtn.querySelector('.play-icon');
     const pauseIcon = els.masterPlayBtn.querySelector('.pause-icon');
+    const label = document.getElementById('masterBtnLabel');
+
     if (playing) {
-      playIcon.classList.add('hidden');
-      pauseIcon.classList.remove('hidden');
+      els.masterPlayBtn.classList.add('playing');
+      els.masterPlayBtn.setAttribute('title', 'Jeda / Pause Semua Track');
+      if (playIcon) playIcon.classList.add('hidden');
+      if (pauseIcon) pauseIcon.classList.remove('hidden');
+      if (label) label.textContent = 'Jeda';
     } else {
-      playIcon.classList.remove('hidden');
-      pauseIcon.classList.add('hidden');
+      els.masterPlayBtn.classList.remove('playing');
+      els.masterPlayBtn.setAttribute('title', 'Putar Semua Track (Play)');
+      if (playIcon) playIcon.classList.remove('hidden');
+      if (pauseIcon) pauseIcon.classList.add('hidden');
+      if (label) label.textContent = 'Putar';
     }
   }
 
@@ -676,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // === Reset All ===
   function resetAll() {
-    pauseAllTracks();
+    stopAllTracks();
     state.selectedFile = null;
     state.jobId = null;
     state.isPlaying = false;
