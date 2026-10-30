@@ -45,7 +45,7 @@ Cukup klik dua kali berkas **`start.bat`**!
 Berkas ini akan:
 1. Memeriksa apakah **Node.js** sudah terpasang (jika belum, otomatis mengarahkan ke halaman download resmi).
 2. Memeriksa & mengunduh dependensi (`node_modules`) secara otomatis jika belum ada.
-3. Menjalankan server dan otomatis membuka aplikasi di browser Anda di `http://localhost:3000`.
+3. Menjalankan server dan otomatis membuka aplikasi di browser Anda di `http://localhost:3032`.
 
 ---
 
@@ -73,7 +73,7 @@ start.bat
 
 4. **Buka di browser**
 ```
-http://localhost:3000
+http://localhost:3032
 ```
 
 ### Install Demucs (Opsional - untuk hasil AI terbaik)
@@ -130,7 +130,7 @@ App-VoiceRemover/
 
 | Variable | Default | Deskripsi |
 |----------|---------|-----------|
-| `PORT` | 3000 | Port server |
+| `PORT` | 3032 | Port server |
 | File Limit | 100MB | Ukuran file maksimum |
 
 ## 📊 Mode Pemisahan

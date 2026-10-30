@@ -76,14 +76,14 @@ echo.
 :: 4. Jalankan Server dan Buka Browser
 :: -------------------------------------------------------------------
 echo ======================================================================
-echo  🚀 Memulai server FYJ Channel Voice di http://localhost:3000 ...
+echo  🚀 Memulai server FYJ Channel Voice di http://localhost:3032 ...
 echo  Browser akan terbuka secara otomatis dalam 2 detik.
 echo  Untuk menghentikan aplikasi, tekan tombol [Ctrl + C] di jendela ini.
 echo ======================================================================
 echo.
 
 :: Jadwalkan browser terbuka setelah server siap
-start "" /b cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:3000"
+start "" /b cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:3032"
 
 :: Jalankan server
 node server.js

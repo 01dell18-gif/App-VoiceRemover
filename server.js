@@ -29,7 +29,7 @@ const io = new Server(server, {
   cors: { origin: '*' }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3032;
 
 // Middleware
 app.use(cors());
