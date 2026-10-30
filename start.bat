@@ -16,23 +16,42 @@ where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ======================================================================
-    echo  [!] PERINGATAN: Node.js TIDAK ditemukan di komputer ini!
+    echo  [!] Node.js TIDAK ditemukan di komputer ini!
     echo ======================================================================
-    echo  Aplikasi web ini membutuhkan Node.js (versi 18 ke atas) untuk berjalan.
+    echo  Aplikasi web ini membutuhkan Node.js untuk berjalan.
     echo.
-    echo  Membuka halaman download Node.js resmi di browser Anda...
-    start https://nodejs.org/en/download/
-    echo.
-    echo  Silakan unduh dan pasang (install) Node.js LTS, lalu jalankan kembali
-    echo  file batch ini setelah instalasi selesai.
-    echo.
-    echo  Jika komputer Anda mendukung winget, Anda juga dapat membuka PowerShell
-    echo  dan mengetikkan:
-    echo      winget install OpenJS.NodeJS.LTS
-    echo ======================================================================
-    echo.
-    pause
-    exit /b 1
+    if exist "%~dp0installers\node-v20.18.0-x64.msi" (
+        echo  [*] Ditemukan paket installer Node.js di folder "installers".
+        echo  [*] Menjalankan installer Node.js sekarang...
+        echo.
+        echo  Silakan ikuti wizard instalasi di layar hingga selesai (klik Next/Install).
+        start /wait msiexec /i "%~dp0installers\node-v20.18.0-x64.msi"
+        echo.
+        echo  [OK] Instalasi Node.js selesai.
+        echo.
+        echo  Menyegarkan environment system...
+        :: Perbarui PATH untuk sesi command prompt ini
+        set "PATH=%ProgramFiles%\nodejs\;%APPDATA%\npm;%PATH%"
+        where node >nul 2>&1
+        if %ERRORLEVEL% NEQ 0 (
+            echo.
+            echo  [INFO] Silakan tutup dan buka kembali file "start.bat" ini
+            echo  agar sistem mengenali Node.js yang baru saja dipasang.
+            echo.
+            pause
+            exit /b 0
+        )
+    ) else (
+        echo  File installer tidak ditemukan di folder "installers\".
+        echo  Membuka halaman download Node.js resmi di browser Anda...
+        start https://nodejs.org/en/download/
+        echo.
+        echo  Silakan unduh dan pasang (install) Node.js LTS, lalu jalankan kembali
+        echo  file batch ini setelah instalasi selesai.
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
 for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
@@ -43,9 +62,10 @@ echo.
 :: 2. Pemeriksaan Dependensi (node_modules)
 :: -------------------------------------------------------------------
 echo [2/3] Memeriksa paket dependensi aplikasi...
-if not exist "node_modules\" (
+if not exist "%~dp0node_modules\" (
     echo  Dependensi belum terpasang. Menjalankan "npm install"...
     echo  Harap tunggu beberapa saat...
+    cd /d "%~dp0"
     call npm install
     if %ERRORLEVEL% NEQ 0 (
         echo.
@@ -66,9 +86,13 @@ echo.
 echo [3/3] Memeriksa Mesin Pemisah Audio...
 where python >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    echo [OK] Python terdeteksi. AI Demucs dapat aktif jika model terpasang.
+    for /f "tokens=*" %%p in ('python --version') do set PY_VER=%%p
+    echo [OK] Python terdeteksi (%PY_VER%). AI Demucs Engine dapat aktif.
 ) else (
     echo [INFO] FFmpeg DSP Engine internal aktif (siap pakai tanpa konfigurasi tambahan).
+    if exist "%~dp0installers\python-3.11.9-amd64.exe" (
+        echo        (Tersedia installer Python di folder "installers\" jika ingin memasang AI Engine).
+    )
 )
 echo.
 
@@ -82,10 +106,9 @@ echo  Untuk menghentikan aplikasi, tekan tombol [Ctrl + C] di jendela ini.
 echo ======================================================================
 echo.
 
-:: Jadwalkan browser terbuka setelah server siap
+cd /d "%~dp0"
 start "" /b cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:3032"
 
-:: Jalankan server
 node server.js
 
 pause
