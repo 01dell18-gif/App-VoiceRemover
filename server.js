@@ -468,21 +468,71 @@ async function processWithFFmpeg(jobId, jobInfo, outputDir) {
   const baseName = path.parse(jobInfo.filename).name;
   const results = [];
 
-  emitProgress(jobId, 25, 'Menganalisis frekuensi audio...');
+  emitProgress(jobId, 25, 'Menganalisis frekuensi dan kanal audio...');
 
-  // 1. Ekstrak Musik / Instrumental (Karaoke)
-  // Menghilangkan center vocal sambil mempertahankan frekuensi bass (<200Hz) dan stereo stage
-  emitProgress(jobId, 45, 'Mengekstrak Musik / Instrumental (Karaoke)...');
+  // Deteksi kanal audio (mono vs stereo)
+  let isMono = false;
+  try {
+    const probeOutput = await new Promise((resolve) => {
+      exec(`"${ffmpegBin}" -i "${inputFile}"`, (err, stdout, stderr) => {
+        resolve((stderr || '') + (stdout || ''));
+      });
+    });
+    if (probeOutput.includes('mono,') || probeOutput.includes('1 channels')) {
+      isMono = true;
+      console.log(`ℹ️ [Job ${jobId}] Terdeteksi format audio MONO`);
+    } else {
+      console.log(`ℹ️ [Job ${jobId}] Terdeteksi format audio STEREO`);
+    }
+  } catch (e) {
+    isMono = false;
+  }
+
   const instrumentalPath = path.join(outputDir, `${baseName}_instrumental.mp3`);
-  
-  await runFFmpeg([
-    '-i', inputFile,
-    '-filter_complex',
-    '[0:a]asplit=2[low][high];[low]lowpass=f=200[bass];[high]highpass=f=200,stereotools=mlev=0.02:sbal=0:slev=1.3[sides];[bass][sides]amix=inputs=2:weights=1.1 1.0[out]',
-    '-map', '[out]',
-    '-b:a', '192k',
-    '-y', instrumentalPath
-  ]);
+  const vocalsPath = path.join(outputDir, `${baseName}_vocals.mp3`);
+
+  if (isMono) {
+    // 1. Ekstrak Musik / Instrumental untuk MONO
+    emitProgress(jobId, 45, 'Mengekstrak Musik / Instrumental (Notch Filter Mono)...');
+    await runFFmpeg([
+      '-i', inputFile,
+      '-af', 'equalizer=f=1100:width_type=o:w=2.2:g=-16,equalizer=f=2800:width_type=o:w=1.6:g=-14',
+      '-b:a', '192k',
+      '-y', instrumentalPath
+    ]);
+
+    // 2. Ekstrak Vokal untuk MONO
+    emitProgress(jobId, 65, 'Mengekstrak Suara Vokal (Bandpass Filter Mono)...');
+    await runFFmpeg([
+      '-i', inputFile,
+      '-af', 'highpass=f=220,lowpass=f=4200,volume=1.3',
+      '-b:a', '192k',
+      '-y', vocalsPath
+    ]);
+  } else {
+    // 1. Ekstrak Musik / Instrumental untuk STEREO (Out-of-phase center vocal cancellation + Bass preservation)
+    emitProgress(jobId, 45, 'Mengekstrak Musik / Instrumental (Karaoke)...');
+    await runFFmpeg([
+      '-i', inputFile,
+      '-filter_complex',
+      '[0:a]asplit=2[low][high];[low]lowpass=f=160,volume=1.0[bass];[high]highpass=f=160,pan=stereo|c0=0.5*c0-0.5*c1|c1=0.5*c1-0.5*c0[sides];[bass][sides]amix=inputs=2:weights=1.0 1.0:normalize=0[out]',
+      '-map', '[out]',
+      '-b:a', '192k',
+      '-y', instrumentalPath
+    ]);
+
+    // 2. Ekstrak Vokal untuk STEREO (Subtraksi Fase: Lagu Asli dikurangi Instrumental = Vokal Murni)
+    emitProgress(jobId, 65, 'Mengekstrak Suara Vokal (Subtraksi Audio Murni)...');
+    await runFFmpeg([
+      '-i', inputFile,
+      '-i', instrumentalPath,
+      '-filter_complex',
+      '[1:a]volume=-1.0[inv];[0:a][inv]amix=inputs=2:weights=1.0 1.0:normalize=0,highpass=f=180,lowpass=f=5000,volume=1.2[vocal]',
+      '-map', '[vocal]',
+      '-b:a', '192k',
+      '-y', vocalsPath
+    ]);
+  }
 
   results.push({
     name: 'instrumental',
@@ -490,18 +540,6 @@ async function processWithFFmpeg(jobId, jobInfo, outputDir) {
     path: instrumentalPath,
     icon: 'music'
   });
-
-  // 2. Ekstrak Vokal
-  // Isolasi sinyal mid/center vokal, filter rumble dan desis, boost frekuensi vokal
-  emitProgress(jobId, 65, 'Mengekstrak Suara Vokal...');
-  const vocalsPath = path.join(outputDir, `${baseName}_vocals.mp3`);
-  
-  await runFFmpeg([
-    '-i', inputFile,
-    '-af', 'stereotools=slev=0.015625:mlev=1.4,highpass=f=200,lowpass=f=4500,equalizer=f=1200:t=q:w=1.2:g=3',
-    '-b:a', '192k',
-    '-y', vocalsPath
-  ]);
 
   results.push({
     name: 'vocals',

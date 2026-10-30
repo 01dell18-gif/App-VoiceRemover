@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedFile: null,
     jobId: null,
     isPlaying: false,
+    playbackMode: 'instrumental', // 'instrumental', 'vocals', 'mix', 'original'
+    currentPlaying: null,
     tracks: {},
     primaryTrack: null,
     separationType: 'vocals_music',
@@ -85,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function init() {
     setupEventListeners();
+    setupModePills();
     createParticles();
     checkSystemHealth();
     setupScrollEffects();
@@ -405,6 +408,8 @@ document.addEventListener('DOMContentLoaded', () => {
     state.tracks = {};
     state.isPlaying = false;
     state.soloTrack = null;
+    state.playbackMode = 'instrumental';
+    updatePillsUI('instrumental');
     updateMasterPlayButton(false);
 
     const iconMap = {
@@ -485,10 +490,11 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="track-controls">
         <button class="solo-btn" data-track="${track.name}" title="Solo: Hanya dengarkan track ini">S</button>
         <button class="mute-btn" data-track="${track.name}" title="Mute: Matikan suara track ini">M</button>
-        <button class="track-btn play-btn" data-track="${track.name}" title="Play/Pause Track">
+        <button class="track-btn play-btn" data-track="${track.name}" title="Putar ${track.label}">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <polygon points="5 3 19 12 5 21 5 3"/>
           </svg>
+          <span class="track-play-label">Putar</span>
         </button>
         <a href="/api/download/${state.jobId}/${track.name}" class="download-btn" download title="Download ${track.label}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -576,53 +582,170 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // === Audio Synchronization Engine ===
+  // === Audio Synchronization & Playback Engine ===
   function setupAudioSync() {
-    if (!state.primaryTrack) return;
-    const primAudio = state.primaryTrack.audio;
+    Object.values(state.tracks).forEach(t => {
+      t.audio.addEventListener('loadedmetadata', () => {
+        if (t.audio.duration && (!state.duration || t.audio.duration > state.duration)) {
+          state.duration = t.audio.duration;
+          els.totalDuration.textContent = formatTime(state.duration);
+        }
+      });
 
-    primAudio.addEventListener('loadedmetadata', () => {
-      els.totalDuration.textContent = formatTime(primAudio.duration);
-    });
+      t.audio.addEventListener('timeupdate', () => {
+        if ((state.currentPlaying === t.name || (state.currentPlaying === 'master' && t === state.primaryTrack)) && t.audio.duration) {
+          state.currentTime = t.audio.currentTime;
+          const percent = (t.audio.currentTime / t.audio.duration) * 100;
+          els.masterScrubber.value = percent;
+          els.currentTime.textContent = formatTime(t.audio.currentTime);
+        }
+      });
 
-    primAudio.addEventListener('timeupdate', () => {
-      if (primAudio.duration) {
-        const percent = (primAudio.currentTime / primAudio.duration) * 100;
-        els.masterScrubber.value = percent;
-        els.currentTime.textContent = formatTime(primAudio.currentTime);
-      }
-    });
-
-    primAudio.addEventListener('ended', () => {
-      stopAllTracks();
+      t.audio.addEventListener('ended', () => {
+        if (state.currentPlaying === t.name) {
+          pauseSingleTrack(t.name);
+          seekAllTracks(0);
+        } else if (state.currentPlaying === 'master' && t === state.primaryTrack) {
+          stopAllTracks();
+        }
+      });
     });
   }
 
+  // === Playback Mode Selector Pills ===
+  function setupModePills() {
+    document.querySelectorAll('.mode-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const mode = pill.getAttribute('data-mode');
+        switchPlaybackMode(mode);
+      });
+    });
+  }
+
+  function switchPlaybackMode(mode) {
+    state.playbackMode = mode;
+    updatePillsUI(mode);
+    updateMasterPlayButton(state.isPlaying);
+
+    // Jika sedang berputar, langsung alihkan ke mode yang dipilih secara mulus
+    if (state.isPlaying) {
+      if (mode === 'mix') {
+        playMix();
+      } else if (state.tracks[mode]) {
+        playSingleTrack(mode);
+      }
+    }
+  }
+
+  function updatePillsUI(activeMode) {
+    document.querySelectorAll('.mode-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('data-mode') === activeMode);
+    });
+  }
+
+  // Master Mixer Play (Sesuai mode yang dipilih)
   function toggleMasterPlay() {
     if (state.isPlaying) {
       pauseAllTracks();
     } else {
-      playAllTracks();
+      if (state.playbackMode === 'mix') {
+        playMix();
+      } else if (state.tracks[state.playbackMode]) {
+        playSingleTrack(state.playbackMode);
+      } else if (state.tracks['instrumental']) {
+        playSingleTrack('instrumental');
+      } else {
+        const firstKey = Object.keys(state.tracks)[0];
+        if (firstKey) playSingleTrack(firstKey);
+      }
     }
   }
 
-  function playAllTracks() {
-    const syncTime = state.primaryTrack ? state.primaryTrack.audio.currentTime : 0;
+  function playMix() {
+    state.playbackMode = 'mix';
+    updatePillsUI('mix');
+
+    // Matikan track original agar tidak menimpa hasil pemisahan
+    if (state.tracks['original']) {
+      state.tracks['original'].audio.pause();
+      state.tracks['original'].card.classList.remove('playing');
+      updateTrackButtonIcon(state.tracks['original'], false);
+    }
+
+    const syncTime = state.currentTime || (state.primaryTrack ? state.primaryTrack.audio.currentTime : 0);
     const promises = [];
 
+    // Putar hanya stem hasil pemisahan (Instrumental, Vokal, Drum, Bass, dll.)
     Object.values(state.tracks).forEach(t => {
-      t.audio.currentTime = syncTime;
-      t.audio.playbackRate = state.tempo;
-      applyVolume(t);
-      t.card.classList.add('playing');
-      updateTrackButtonIcon(t, true);
-      promises.push(t.audio.play().catch(() => {}));
+      if (t.name !== 'original') {
+        t.audio.currentTime = syncTime;
+        t.audio.playbackRate = state.tempo;
+        applyVolume(t);
+        t.card.classList.add('playing');
+        updateTrackButtonIcon(t, true);
+        promises.push(t.audio.play().catch(() => {}));
+      }
     });
 
     Promise.all(promises).then(() => {
       state.isPlaying = true;
+      state.currentPlaying = 'master';
       updateMasterPlayButton(true);
     });
+  }
+
+  // Pemutaran Independen Per-Track (Hanya track yang diklik yang berbunyi)
+  function toggleTrackPlay(trackName) {
+    if (state.isPlaying && state.currentPlaying === trackName) {
+      // Jika track ini sedang berputar sendiri -> Jeda/Pause
+      pauseSingleTrack(trackName);
+    } else {
+      // Putar HANYA track ini (matikan semua track lain)
+      playSingleTrack(trackName);
+    }
+  }
+
+  function playSingleTrack(trackName) {
+    const track = state.tracks[trackName];
+    if (!track) return;
+
+    // Hentikan semua track lainnya
+    Object.values(state.tracks).forEach(t => {
+      if (t.name !== trackName) {
+        t.audio.pause();
+        t.card.classList.remove('playing');
+        updateTrackButtonIcon(t, false);
+      }
+    });
+
+    // Update mode pill aktif
+    state.playbackMode = trackName;
+    updatePillsUI(trackName);
+
+    const syncTime = state.currentTime || (track.audio.currentTime || 0);
+    track.audio.currentTime = syncTime;
+    track.audio.playbackRate = state.tempo;
+    track.audio.volume = track.isMuted ? 0 : track.volume;
+
+    track.audio.play().then(() => {
+      state.isPlaying = true;
+      state.currentPlaying = trackName;
+      track.card.classList.add('playing');
+      updateTrackButtonIcon(track, true);
+      updateMasterPlayButton(true);
+    }).catch(err => console.error(err));
+  }
+
+  function pauseSingleTrack(trackName) {
+    const track = state.tracks[trackName];
+    if (track) {
+      track.audio.pause();
+      track.card.classList.remove('playing');
+      updateTrackButtonIcon(track, false);
+    }
+    state.isPlaying = false;
+    state.currentPlaying = null;
+    updateMasterPlayButton(false);
   }
 
   function pauseAllTracks() {
@@ -632,49 +755,47 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTrackButtonIcon(t, false);
     });
     state.isPlaying = false;
+    state.currentPlaying = null;
     updateMasterPlayButton(false);
   }
 
   function stopAllTracks() {
     pauseAllTracks();
     seekAllTracks(0);
+    state.currentTime = 0;
     if (els.masterScrubber) els.masterScrubber.value = 0;
     if (els.currentTime) els.currentTime.textContent = '00:00';
-  }
-
-  function toggleTrackPlay(trackName) {
-    if (state.isPlaying) {
-      pauseAllTracks();
-    } else {
-      playAllTracks();
-    }
   }
 
   function updateTrackButtonIcon(trackObj, isPlaying) {
     if (!trackObj || !trackObj.playBtn) return;
     if (isPlaying) {
       trackObj.playBtn.classList.add('playing');
-      trackObj.playBtn.setAttribute('title', 'Jeda / Pause (Klik untuk jeda)');
+      trackObj.playBtn.setAttribute('title', `Jeda ${trackObj.label}`);
       trackObj.playBtn.innerHTML = `
         <svg viewBox="0 0 24 24" fill="currentColor">
           <rect x="6" y="4" width="4" height="16"/>
           <rect x="14" y="4" width="4" height="16"/>
         </svg>
+        <span class="track-play-label">Jeda</span>
       `;
     } else {
       trackObj.playBtn.classList.remove('playing');
-      trackObj.playBtn.setAttribute('title', 'Putar / Play (Klik untuk putar)');
+      trackObj.playBtn.setAttribute('title', `Putar ${trackObj.label}`);
       trackObj.playBtn.innerHTML = `
         <svg viewBox="0 0 24 24" fill="currentColor">
           <polygon points="5 3 19 12 5 21 5 3"/>
         </svg>
+        <span class="track-play-label">Putar</span>
       `;
     }
   }
 
   function seekAllTracks(percent) {
-    if (!state.primaryTrack || !state.primaryTrack.audio.duration) return;
-    const targetTime = (percent / 100) * state.primaryTrack.audio.duration;
+    const targetDuration = state.duration || (state.primaryTrack && state.primaryTrack.audio.duration) || 0;
+    if (!targetDuration) return;
+    const targetTime = (percent / 100) * targetDuration;
+    state.currentTime = targetTime;
     
     Object.values(state.tracks).forEach(t => {
       t.audio.currentTime = targetTime;
@@ -690,16 +811,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (playing) {
       els.masterPlayBtn.classList.add('playing');
-      els.masterPlayBtn.setAttribute('title', 'Jeda / Pause Semua Track');
+      els.masterPlayBtn.setAttribute('title', 'Jeda / Pause');
       if (playIcon) playIcon.classList.add('hidden');
       if (pauseIcon) pauseIcon.classList.remove('hidden');
       if (label) label.textContent = 'Jeda';
     } else {
       els.masterPlayBtn.classList.remove('playing');
-      els.masterPlayBtn.setAttribute('title', 'Putar Semua Track (Play)');
+      els.masterPlayBtn.setAttribute('title', 'Putar Audio Sesuai Mode');
       if (playIcon) playIcon.classList.remove('hidden');
       if (pauseIcon) pauseIcon.classList.add('hidden');
-      if (label) label.textContent = 'Putar';
+      if (label) {
+        if (state.playbackMode === 'vocals') label.textContent = 'Putar Vokal';
+        else if (state.playbackMode === 'original') label.textContent = 'Putar Asli';
+        else if (state.playbackMode === 'mix') label.textContent = 'Putar Mix';
+        else label.textContent = 'Putar Musik';
+      }
     }
   }
 
