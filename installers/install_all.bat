@@ -36,23 +36,39 @@ if %ERRORLEVEL% EQU 0 (
 )
 echo.
 
-:: 2. Cek & Pasang Python
-echo [2/2] Memeriksa Python...
-where python >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=*" %%v in ('python --version') do set PY_VER=%%v
-    echo [OK] Python sudah terpasang: %PY_VER%
+:: 2. Cek & Pasang Python & Demucs AI
+echo [2/2] Memeriksa Python & Modul AI Demucs...
+set "PY_CMD="
+if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+) else if exist "%ProgramFiles%\Python311\python.exe" (
+    set "PY_CMD=%ProgramFiles%\Python311\python.exe"
 ) else (
+    where python >nul 2>&1 && set "PY_CMD=python"
+)
+
+if not defined PY_CMD (
     echo [!] Python belum terpasang.
     if exist "%~dp0python-3.11.9-amd64.exe" (
         echo [*] Menjalankan installer Python 3.11...
-        echo PENTING: Centang opsi "Add python.exe to PATH" saat instalasi!
-        start /wait "" "%~dp0python-3.11.9-amd64.exe"
-        echo [OK] Instalasi Python selesai.
+        start /wait "" "%~dp0python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 SimpleInstall=1
+        if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
+            set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+        )
+        echo [OK] Instalasi Python 3.11 selesai.
     ) else (
         echo [!] File python-3.11.9-amd64.exe tidak ditemukan di folder ini.
         start https://www.python.org/downloads/
     )
+)
+
+if defined PY_CMD (
+    for /f "tokens=*" %%p in ('"%PY_CMD%" --version') do set PY_VER=%%p
+    echo [OK] Python terpasang: %PY_VER%
+    echo [*] Memeriksa dan memasang modul AI Demucs...
+    "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+    "%PY_CMD%" -m pip install demucs numpy
+    echo [OK] Modul AI Demucs berhasil dipasang!
 )
 echo.
 

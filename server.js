@@ -85,43 +85,62 @@ const activeJobs = new Map();
 let pythonCmd = null;
 let demucsAvailable = false;
 
-async function findPython() {
-  const cmds = ['python', 'python3', 'py'];
-  for (const cmd of cmds) {
+async function findPythonAndDemucs() {
+  const candidates = [
+    process.env.PYTHON_PATH,
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python311', 'python.exe'),
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python310', 'python.exe'),
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python312', 'python.exe'),
+    'C:\\Python311\\python.exe',
+    'C:\\Program Files\\Python311\\python.exe',
+    'py -3.11',
+    'py -3.10',
+    'python',
+    'python3',
+    'py'
+  ].filter(Boolean);
+
+  // Tahap 1: Prioritaskan kandidat Python yang sudah terpasang modul AI Demucs
+  for (const candidate of candidates) {
+    if (candidate.includes('\\') && !fs.existsSync(candidate)) continue;
     try {
       await new Promise((resolve, reject) => {
-        exec(`${cmd} --version`, (err, stdout) => {
+        exec(`"${candidate}" -m demucs --help`, (err) => {
+          if (err) reject(err);
+          else resolve(true);
+        });
+      });
+      pythonCmd = candidate;
+      demucsAvailable = true;
+      console.log(`✅ Mesin AI Demucs aktif melalui Python: ${candidate}`);
+      return;
+    } catch (e) {
+      // Belum ada demucs, lanjutkan pencarian
+    }
+  }
+
+  // Tahap 2: Jika belum ada Demucs, cari Python manapun yang valid
+  for (const candidate of candidates) {
+    if (candidate.includes('\\') && !fs.existsSync(candidate)) continue;
+    try {
+      await new Promise((resolve, reject) => {
+        exec(`"${candidate}" --version`, (err, stdout) => {
           if (err) reject(err);
           else resolve(stdout);
         });
       });
-      pythonCmd = cmd;
-      console.log(`✅ Python found: ${cmd}`);
-      return cmd;
+      pythonCmd = candidate;
+      demucsAvailable = false;
+      console.log(`ℹ️ Python terdeteksi (${candidate}), tetapi modul 'demucs' belum terpasang.`);
+      return;
     } catch (e) {
       continue;
     }
   }
-  console.log('ℹ️ Python not found. Separation will use built-in FFmpeg DSP separation.');
-  return null;
-}
 
-async function checkDemucs() {
-  if (!pythonCmd) return false;
-  try {
-    await new Promise((resolve, reject) => {
-      exec(`${pythonCmd} -m demucs --help`, (err) => {
-        if (err) reject(err);
-        else resolve(true);
-      });
-    });
-    demucsAvailable = true;
-    console.log('✅ Demucs is available');
-    return true;
-  } catch (e) {
-    console.log('ℹ️ Demucs not found. Using built-in high-quality FFmpeg audio separator.');
-    return false;
-  }
+  pythonCmd = null;
+  demucsAvailable = false;
+  console.log('ℹ️ Python tidak ditemukan. Menggunakan FFmpeg DSP Engine sebagai fallback.');
 }
 
 async function checkFFmpeg() {
@@ -397,7 +416,7 @@ async function processAudio(jobId, jobInfo) {
 
 async function processWithDemucs(jobId, jobInfo, outputDir) {
   return new Promise((resolve, reject) => {
-    emitProgress(jobId, 20, 'Memulai pemisahan dengan AI Demucs...');
+    emitProgress(jobId, 15, 'Memulai pemisahan AI Demucs (Meta Research)...');
 
     let model = 'htdemucs';
     switch (jobInfo.separationType) {
@@ -412,52 +431,73 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
         break;
     }
 
+    const isTwoStems = jobInfo.separationType === 'vocals_music';
     const args = [
       '-m', 'demucs',
-      '--two-stems', jobInfo.separationType === 'vocals_music' ? 'vocals' : undefined,
       '-n', model,
       '--out', outputDir,
       '--mp3',
-      jobInfo.filepath
-    ].filter(Boolean);
+      '--mp3-bitrate', '256'
+    ];
 
-    const proc = spawn(pythonCmd, args);
+    if (isTwoStems) {
+      args.push('--two-stems', 'vocals');
+    }
+
+    args.push(jobInfo.filepath);
+
+    let cmd = pythonCmd;
+    let cmdArgs = [];
+    if (pythonCmd.startsWith('py -')) {
+      const parts = pythonCmd.split(' ');
+      cmd = parts[0];
+      cmdArgs = parts.slice(1);
+    }
+    const fullArgs = [...cmdArgs, ...args];
+
+    console.log(`[Job ${jobId}] Menjalankan AI Demucs: ${cmd} ${fullArgs.join(' ')}`);
+
+    const proc = spawn(cmd, fullArgs, { windowsHide: true });
     
     let lastProgress = 20;
-    proc.stdout.on('data', (data) => {
-      const output = data.toString();
-      const match = output.match(/(\d+)%/);
-      if (match) {
-        lastProgress = Math.min(90, parseInt(match[1]));
-        emitProgress(jobId, lastProgress, 'Memproses pemisahan audio dengan AI...');
-      }
-    });
 
-    proc.stderr.on('data', (data) => {
+    function handleData(data) {
       const output = data.toString();
       const match = output.match(/(\d+)%/);
       if (match) {
-        lastProgress = Math.min(90, parseInt(match[1]));
-        emitProgress(jobId, lastProgress, 'Memproses pemisahan audio dengan AI...');
+        const pct = parseInt(match[1]);
+        if (pct > lastProgress && pct < 98) {
+          lastProgress = pct;
+          emitProgress(jobId, lastProgress, `Memproses pemisahan audio dengan AI Demucs (${lastProgress}%)...`);
+        }
       }
-    });
+    }
+
+    proc.stdout.on('data', handleData);
+    proc.stderr.on('data', handleData);
 
     proc.on('close', (code) => {
       if (code !== 0) {
-        console.log('Demucs exited with error, falling back to FFmpeg DSP');
+        console.warn(`Demucs keluar dengan kode ${code}, beralih ke FFmpeg DSP fallback`);
         processWithFFmpeg(jobId, jobInfo, outputDir).then(resolve).catch(reject);
         return;
       }
 
       const results = findOutputFiles(outputDir, jobInfo);
+      if (results.length === 0) {
+        console.warn('Demucs selesai namun file output tidak ditemukan, beralih ke FFmpeg DSP fallback');
+        processWithFFmpeg(jobId, jobInfo, outputDir).then(resolve).catch(reject);
+        return;
+      }
+
       jobInfo.results = results;
       jobInfo.status = 'completed';
-      emitProgress(jobId, 100, 'Selesai! Track siap diunduh.');
+      emitProgress(jobId, 100, 'Selesai! Vokal dan instrumen berhasil dipisahkan bersih dengan AI.');
       resolve();
     });
 
     proc.on('error', (err) => {
-      console.log('Demucs spawn error, falling back to FFmpeg DSP:', err);
+      console.warn('Demucs spawn error, beralih ke FFmpeg DSP fallback:', err);
       processWithFFmpeg(jobId, jobInfo, outputDir).then(resolve).catch(reject);
     });
   });
@@ -515,19 +555,18 @@ async function processWithFFmpeg(jobId, jobInfo, outputDir) {
     await runFFmpeg([
       '-i', inputFile,
       '-filter_complex',
-      '[0:a]asplit=2[low][high];[low]lowpass=f=160,volume=1.0[bass];[high]highpass=f=160,pan=stereo|c0=0.5*c0-0.5*c1|c1=0.5*c1-0.5*c0[sides];[bass][sides]amix=inputs=2:weights=1.0 1.0:normalize=0[out]',
+      '[0:a]asplit=2[low][high];[low]lowpass=f=160,volume=1.0[bass];[high]highpass=f=160,pan=stereo|c0=0.5*c0-0.5*c1|c1=0.5*c1-0.5*c0,equalizer=f=1100:width_type=o:w=2.0:g=-10,equalizer=f=2800:width_type=o:w=1.6:g=-8[sides];[bass][sides]amix=inputs=2:weights=1.0 1.0:normalize=0[out]',
       '-map', '[out]',
       '-b:a', '192k',
       '-y', instrumentalPath
     ]);
 
-    // 2. Ekstrak Vokal untuk STEREO (Subtraksi Fase: Lagu Asli dikurangi Instrumental = Vokal Murni)
-    emitProgress(jobId, 65, 'Mengekstrak Suara Vokal (Subtraksi Audio Murni)...');
+    // 2. Ekstrak Vokal untuk STEREO (Isolasi Vokal Tengah + Bandpass Filter)
+    emitProgress(jobId, 65, 'Mengekstrak Suara Vokal (Isolasi Frekuensi Vokal)...');
     await runFFmpeg([
       '-i', inputFile,
-      '-i', instrumentalPath,
       '-filter_complex',
-      '[1:a]volume=-1.0[inv];[0:a][inv]amix=inputs=2:weights=1.0 1.0:normalize=0,highpass=f=180,lowpass=f=5000,volume=1.2[vocal]',
+      '[0:a]pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1,highpass=f=200,lowpass=f=4500,equalizer=f=1200:width_type=o:w=1.8:g=3,volume=1.3[vocal]',
       '-map', '[vocal]',
       '-b:a', '192k',
       '-y', vocalsPath
@@ -646,21 +685,45 @@ function findOutputFiles(outputDir, jobInfo) {
       } else if (stat.isFile()) {
         const ext = path.extname(item).toLowerCase();
         if (['.mp3', '.wav', '.flac', '.ogg'].includes(ext)) {
-          const name = path.parse(item).name.toLowerCase();
+          const rawName = path.parse(item).name.toLowerCase();
+          let name = rawName;
           let label = item;
           let icon = 'music';
           
-          if (name.includes('vocal')) { label = 'Vokal'; icon = 'mic'; }
-          else if (name.includes('drum')) { label = 'Drum & Perkusi'; icon = 'drum'; }
-          else if (name.includes('bass')) { label = 'Bass'; icon = 'bass'; }
-          else if (name.includes('other') || name.includes('no_vocal')) { 
-            label = 'Instrumental / Musik'; icon = 'music'; 
+          // PENTING: Periksa 'no_vocals' / instrumental terlebih dahulu sebelum 'vocal'
+          // karena string 'no_vocals' mengandung substring 'vocal'!
+          if (rawName === 'no_vocals' || rawName.includes('no_vocal') || rawName.includes('instrumental')) {
+            name = 'instrumental';
+            label = 'Instrumental / Musik';
+            icon = 'music';
+          } else if (rawName === 'vocals' || rawName.includes('vocal')) {
+            name = 'vocals';
+            label = 'Vokal';
+            icon = 'mic';
+          } else if (rawName.includes('drum')) {
+            name = 'drums';
+            label = 'Drum & Perkusi';
+            icon = 'drum';
+          } else if (rawName.includes('bass')) {
+            name = 'bass';
+            label = 'Bass';
+            icon = 'bass';
+          } else if (rawName.includes('piano')) {
+            name = 'piano';
+            label = 'Piano';
+            icon = 'piano';
+          } else if (rawName.includes('guitar')) {
+            name = 'guitar';
+            label = 'Gitar';
+            icon = 'guitar';
+          } else if (rawName.includes('other')) {
+            name = 'other';
+            label = 'Instrumen Lain (Melodi)';
+            icon = 'other';
           }
-          else if (name.includes('piano')) { label = 'Piano'; icon = 'piano'; }
-          else if (name.includes('guitar')) { label = 'Gitar'; icon = 'guitar'; }
 
           results.push({
-            name: path.parse(item).name,
+            name,
             label,
             path: fullPath,
             icon
@@ -725,13 +788,12 @@ async function init() {
   console.log('═══════════════════════════════════════════\n');
   
   await checkFFmpeg();
-  await findPython();
-  await checkDemucs();
+  await findPythonAndDemucs();
   
   console.log('\n─── Status Sistem ───');
   console.log(`FFmpeg:  ${ffmpegAvailable ? '✅ Ready (' + ffmpegBin + ')' : '❌ Not found'}`);
-  console.log(`Python:  ${pythonCmd ? '✅ ' + pythonCmd : 'ℹ️ Menggunakan FFmpeg Engine'}`);
-  console.log(`Demucs:  ${demucsAvailable ? '✅ Available' : 'ℹ️ DSP Mode Aktif'}`);
+  console.log(`Python:  ${pythonCmd ? '✅ ' + pythonCmd : '❌ Tidak terdeteksi'}`);
+  console.log(`Demucs:  ${demucsAvailable ? '✅ AI Deep Learning Engine Siap!' : 'ℹ️ DSP Mode Aktif (Gunakan pip install demucs untuk kualitas studio)'}`);
   
   server.listen(PORT, () => {
     console.log(`\n🚀 Server berjalan di http://localhost:${PORT}`);

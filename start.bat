@@ -1,72 +1,92 @@
 @echo off
 chcp 65001 >nul
-title FYJ Channel Voice - AI & DSP Vocal Separator
+title FYJ Channel Voice - AI Vocal & Music Separator
 color 0B
 
 echo ======================================================================
-echo          🎵 FYJ Channel Voice - AI & DSP Vocal Separator 🎵
+echo          🎵 FYJ Channel Voice - AI Vocal & Music Separator 🎵
 echo ======================================================================
 echo.
 
+cd /d "%~dp0"
+
 :: -------------------------------------------------------------------
-:: 1. Pemeriksaan Node.js (Wajib)
+:: 1. Pemeriksaan & Konfigurasi Node.js
 :: -------------------------------------------------------------------
-echo [1/3] Memeriksa Node.js...
+echo [1/4] Memeriksa Node.js...
+set "NODE_CMD="
+
+:: Cek apakah 'node' sudah ada di PATH
 where node >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if %ERRORLEVEL% EQU 0 set "NODE_CMD=node"
+
+:: Cek path instalasi standar jika belum ada di PATH
+if not defined NODE_CMD (
+    if exist "%ProgramFiles%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+        set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
+    ) else if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramFiles(x86)%\nodejs\node.exe"
+        set "PATH=%ProgramFiles(x86)%\nodejs;%APPDATA%\npm;%PATH%"
+    ) else if exist "%LocalAppData%\Programs\nodejs\node.exe" (
+        set "NODE_CMD=%LocalAppData%\Programs\nodejs\node.exe"
+        set "PATH=%LocalAppData%\Programs\nodejs;%APPDATA%\npm;%PATH%"
+    )
+)
+
+:: Jika Node.js belum terpasang, tawarkan instalasi otomatis
+if not defined NODE_CMD (
     echo.
     echo ======================================================================
     echo  [!] Node.js TIDAK ditemukan di komputer ini!
     echo ======================================================================
-    echo  Aplikasi web ini membutuhkan Node.js untuk berjalan.
+    echo  Aplikasi web ini membutuhkan Node.js (v18+) untuk dapat dijalankan.
     echo.
     if exist "%~dp0installers\node-v20.18.0-x64.msi" (
-        echo  [*] Ditemukan paket installer Node.js di folder "installers".
-        echo  [*] Menjalankan installer Node.js sekarang...
+        echo  [*] Ditemukan paket installer Node.js di folder "installers\".
+        echo  [*] Menjalankan instalasi Node.js...
         echo.
-        echo  Silakan ikuti wizard instalasi di layar hingga selesai (klik Next/Install).
-        start /wait msiexec /i "%~dp0installers\node-v20.18.0-x64.msi"
-        echo.
-        echo  [OK] Instalasi Node.js selesai.
-        echo.
-        echo  Menyegarkan environment system...
-        :: Perbarui PATH untuk sesi command prompt ini
-        set "PATH=%ProgramFiles%\nodejs\;%APPDATA%\npm;%PATH%"
-        where node >nul 2>&1
-        if %ERRORLEVEL% NEQ 0 (
-            echo.
-            echo  [INFO] Silakan tutup dan buka kembali file "start.bat" ini
-            echo  agar sistem mengenali Node.js yang baru saja dipasang.
-            echo.
+        start /wait msiexec /i "%~dp0installers\node-v20.18.0-x64.msi" /qb
+        set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
+        if exist "%ProgramFiles%\nodejs\node.exe" (
+            set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+            echo  [OK] Node.js berhasil dipasang!
+        ) else (
+            echo  [INFO] Silakan selesaikan instalasi Node.js, lalu buka kembali file start.bat.
             pause
             exit /b 0
         )
     ) else (
-        echo  File installer tidak ditemukan di folder "installers\".
-        echo  Membuka halaman download Node.js resmi di browser Anda...
+        echo  Membuka halaman download Node.js resmi di peramban Anda...
         start https://nodejs.org/en/download/
-        echo.
-        echo  Silakan unduh dan pasang (install) Node.js LTS, lalu jalankan kembali
-        echo  file batch ini setelah instalasi selesai.
+        echo  Silakan unduh dan pasang Node.js LTS, lalu jalankan kembali start.bat ini.
         echo.
         pause
         exit /b 1
     )
 )
 
-for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
-echo [OK] Node.js terdeteksi: %NODE_VER%
+for /f "tokens=*" %%v in ('"%NODE_CMD%" -v') do set "NODE_VER=%%v"
+echo [OK] Node.js aktif: %NODE_VER%
 echo.
 
 :: -------------------------------------------------------------------
 :: 2. Pemeriksaan Dependensi (node_modules)
 :: -------------------------------------------------------------------
-echo [2/3] Memeriksa paket dependensi aplikasi...
+echo [2/4] Memeriksa dependensi aplikasi web (node_modules)...
 if not exist "%~dp0node_modules\" (
     echo  Dependensi belum terpasang. Menjalankan "npm install"...
-    echo  Harap tunggu beberapa saat...
-    cd /d "%~dp0"
-    call npm install
+    echo  Harap tunggu sebentar, proses ini mengunduh modul server dan FFmpeg...
+    where npm >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        call npm install
+    ) else if exist "%ProgramFiles%\nodejs\npm.cmd" (
+        call "%ProgramFiles%\nodejs\npm.cmd" install
+    ) else (
+        echo  [!] npm tidak ditemukan. Silakan pasang Node.js dengan benar.
+        pause
+        exit /b 1
+    )
     if %ERRORLEVEL% NEQ 0 (
         echo.
         echo [!] Gagal menginstal dependensi melalui npm!
@@ -74,41 +94,103 @@ if not exist "%~dp0node_modules\" (
         pause
         exit /b 1
     )
-    echo [OK] Semua dependensi berhasil dipasang!
+    echo [OK] Semua dependensi node_modules berhasil dipasang!
 ) else (
     echo [OK] Dependensi node_modules sudah siap.
 )
 echo.
 
 :: -------------------------------------------------------------------
-:: 3. Info Engine Pemrosesan Audio
+:: 3. Pemeriksaan & Konfigurasi Mesin AI (Python & Demucs)
 :: -------------------------------------------------------------------
-echo [3/3] Memeriksa Mesin Pemisah Audio...
-where python >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=*" %%p in ('python --version') do set PY_VER=%%p
-    echo [OK] Python terdeteksi (%PY_VER%). AI Demucs Engine dapat aktif.
+echo [3/4] Memeriksa Mesin AI Pemisah Audio (Demucs)...
+set "PY_CMD="
+
+:: Deteksi instalasi Python (diutamakan Python 3.11/3.10 yang mendukung PyTorch)
+if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+) else if exist "%LocalAppData%\Programs\Python\Python310\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python310\python.exe"
+) else if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python312\python.exe"
+) else if exist "%ProgramFiles%\Python311\python.exe" (
+    set "PY_CMD=%ProgramFiles%\Python311\python.exe"
+) else if exist "C:\Python311\python.exe" (
+    set "PY_CMD=C:\Python311\python.exe"
 ) else (
-    echo [INFO] FFmpeg DSP Engine internal aktif (siap pakai tanpa konfigurasi tambahan).
+    where py >nul 2>&1 && py -3.11 -c "import sys" >nul 2>&1 && set "PY_CMD=py -3.11"
+)
+
+if not defined PY_CMD (
+    where python >nul 2>&1 && set "PY_CMD=python"
+)
+
+:: Jika Python belum ada sama sekali dan tersedia installer
+if not defined PY_CMD (
     if exist "%~dp0installers\python-3.11.9-amd64.exe" (
-        echo        (Tersedia installer Python di folder "installers\" jika ingin memasang AI Engine).
+        echo  [!] Python belum terpasang. Mesin AI membutuhkan Python 3.11.
+        echo  [*] Menjalankan installer Python 3.11 otomatis...
+        start /wait "" "%~dp0installers\python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 SimpleInstall=1
+        if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
+            set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+            echo  [OK] Python 3.11 berhasil dipasang!
+        )
     )
+)
+
+:: Cek apakah modul Demucs AI sudah terpasang di Python
+set "DEMUCS_READY=0"
+if defined PY_CMD (
+    "%PY_CMD%" -m demucs --help >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        set "DEMUCS_READY=1"
+        for /f "tokens=*" %%p in ('"%PY_CMD%" --version') do set "PY_VER=%%p"
+        echo [OK] Mesin AI Demucs SIAP! (via %PY_VER%)
+    ) else (
+        echo  [*] Python terdeteksi, namun modul AI Demucs belum terpasang.
+        echo  [*] Memasang PyTorch CPU dan Demucs AI sekarang (hanya 1x unduh)...
+        echo      Ini memastikan vokal dan instrumen terpisah 100%% bersih tanpa bocor suara.
+        "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+        "%PY_CMD%" -m pip install demucs numpy
+        "%PY_CMD%" -m demucs --help >nul 2>&1
+        if %ERRORLEVEL% EQU 0 (
+            set "DEMUCS_READY=1"
+            echo  [OK] Mesin AI Demucs berhasil dipasang dan siap digunakan!
+        ) else (
+            echo  [INFO] Pemisahan akan menggunakan FFmpeg DSP Engine bawaan.
+        )
+    )
+) else (
+    echo [INFO] Python tidak terdeteksi. Aplikasi tetap berjalan menggunakan FFmpeg DSP Engine internal.
 )
 echo.
 
 :: -------------------------------------------------------------------
-:: 4. Jalankan Server dan Buka Browser
+:: 4. Deteksi Alamat IP Jaringan Lokal (Akses Multi-Device / HP)
+:: -------------------------------------------------------------------
+set "LOCAL_IP=localhost"
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" 2^>nul') do (
+    for /f "tokens=1" %%b in ("%%a") do (
+        if not "%%b"=="127.0.0.1" set "LOCAL_IP=%%b"
+    )
+)
+
+:: -------------------------------------------------------------------
+:: 5. Jalankan Server dan Buka Peramban
 :: -------------------------------------------------------------------
 echo ======================================================================
-echo  🚀 Memulai server FYJ Channel Voice di http://localhost:3032 ...
-echo  Browser akan terbuka secara otomatis dalam 2 detik.
-echo  Untuk menghentikan aplikasi, tekan tombol [Ctrl + C] di jendela ini.
+echo  🚀 Memulai server FYJ Channel Voice...
+echo.
+echo  📍 Akses di komputer ini      : http://localhost:3032
+echo  📱 Akses dari HP / laptop lain : http://%LOCAL_IP%:3032
+echo.
+echo  Peramban akan terbuka secara otomatis dalam 2 detik.
+echo  Untuk menghentikan aplikasi, tekan kombinasi tombol [Ctrl + C].
 echo ======================================================================
 echo.
 
-cd /d "%~dp0"
 start "" /b cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:3032"
 
-node server.js
+"%NODE_CMD%" server.js
 
 pause

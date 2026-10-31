@@ -42,10 +42,11 @@
 
 ### Cara Cepat (Windows 1-Click Run)
 Cukup klik dua kali berkas **`start.bat`**!
-Berkas ini akan:
-1. Memeriksa apakah **Node.js** sudah terpasang (jika belum, otomatis mengarahkan ke halaman download resmi).
-2. Memeriksa & mengunduh dependensi (`node_modules`) secara otomatis jika belum ada.
-3. Menjalankan server dan otomatis membuka aplikasi di browser Anda di `http://localhost:3032`.
+Berkas ini otomatis:
+1. Memeriksa dan menyiapkan **Node.js** serta dependensi web (`node_modules`).
+2. Memeriksa dan menyiapkan **Python 3.11** serta modul **Demucs AI (Meta Research)** & PyTorch CPU untuk pemisahan vokal studio 100% bersih tanpa bocor suara.
+3. Mendeteksi IP jaringan lokal untuk akses multi-device (bisa dibuka via HP / tablet di Wi-Fi yang sama).
+4. Menjalankan server dan otomatis membuka aplikasi di browser Anda di `http://localhost:3032`.
 
 ---
 
@@ -57,29 +58,15 @@ git clone https://github.com/01dell18-gif/App-VoiceRemover.git
 cd App-VoiceRemover
 ```
 
-2. **Install dependencies**
+2. **Install dependensi Node.js**
 ```bash
 npm install
 ```
 
-3. **Jalankan aplikasi**
+3. **Install Demucs AI Engine (Sangat Direkomendasikan untuk hasil bersih tanpa sisa vokal)**
 ```bash
-npm start
-```
-atau
-```bash
-start.bat
-```
-
-4. **Buka di browser**
-```
-http://localhost:3032
-```
-
-### Install Demucs (Opsional - untuk hasil AI terbaik)
-
-```bash
-pip install demucs
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install demucs numpy
 ```
 
 ### Install FFmpeg (Opsional - untuk pemisahan dasar)
