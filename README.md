@@ -82,6 +82,50 @@ Setelah server aktif, buka peramban web di alamat:
 
 ---
 
+### 3. Deploy ke Domain Web & Cloud Hosting (VPS / Docker / PaaS)
+
+Aplikasi ini sudah **100% Production Ready** untuk diunggah ke domain web, VPS Linux, maupun platform cloud hosting:
+
+#### A. Menggunakan Docker / Docker Compose (Rekomendasi VPS Linux & Domain Web)
+
+Jika Anda memiliki server VPS (Ubuntu/Debian) dengan domain terpasang:
+
+```bash
+# 1. Clone repositori ke server VPS
+git clone https://github.com/01dell18-gif/App-VoiceRemover.git
+cd App-VoiceRemover
+
+# 2. Bangun dan jalankan kontainer secara instan
+docker compose up -d --build
+```
+
+Aplikasi langsung aktif berjalan di port `3032` dengan seluruh modul AI Demucs dan FFmpeg terisolasi sempurna. Anda tinggal mengarahkan Nginx reverse proxy domain Anda ke `http://127.0.0.1:3032`.
+
+#### B. Menggunakan PaaS Cloud (Render, Railway, Heroku)
+
+Repositori ini telah menyertakan **`Procfile`** dan **`requirements.txt`**:
+- Hubungkan akun GitHub Anda ke Render / Railway.
+- Pilih repositori `App-VoiceRemover`.
+- Sistem cloud akan otomatis mendeteksi `Procfile` (`web: node server.js`) dan memasang dependensi dari `package.json` dan `requirements.txt`.
+
+#### C. Manual di VPS Linux (Nginx + PM2)
+
+```bash
+# 1. Pasang dependensi sistem
+sudo apt update && sudo apt install -y nodejs npm python3 python3-pip ffmpeg git
+
+# 2. Clone repositori dan pasang dependensi
+git clone https://github.com/01dell18-gif/App-VoiceRemover.git
+cd App-VoiceRemover
+npm install
+pip3 install -r requirements.txt
+
+# 3. Jalankan server dengan PM2
+sudo npm install -g pm2
+pm2 start server.js --name "fyj-voice"
+pm2 save
+```
+
 ## 📦 Paket Installer Offline (Perangkat Lain)
 
 Di dalam folder **[`installers/`](installers/)** telah disediakan file instalasi resmi agar aplikasi dapat langsung dipasang dan dijalankan di komputer mana saja tanpa koneksi internet:
@@ -121,6 +165,11 @@ App-VoiceRemover/
 ├── uploads/                      # Penyimpanan sementara file yang diunggah
 ├── outputs/                      # Penyimpanan hasil file audio yang dipisahkan
 ├── temp/                         # File pemrosesan sementara
+├── Dockerfile                    # Konfigurasi container Docker untuk cloud & VPS
+├── docker-compose.yml            # Konfigurasi 1-klik deploy Docker Compose
+├── requirements.txt              # Daftar pustaka AI Python (PyTorch CPU, Demucs)
+├── Procfile                      # Konfigurasi proses web untuk PaaS (Render, Railway, Heroku)
+├── .env.example                  # Contoh variabel lingkungan server
 ├── server.js                     # Backend API & Mesin Pemroses Audio Express
 ├── package.json                  # Konfigurasi dependensi Node.js
 ├── start.bat                     # Peluncur otomatis 1-klik untuk Windows

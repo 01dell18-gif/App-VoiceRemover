@@ -1,0 +1,15 @@
+services:
+  fyj-voice:
+    build: .
+    container_name: fyj-voice-app
+    restart: unless-stopped
+    ports:
+      - "3032:3032"
+    environment:
+      - PORT=3032
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./models:/app/models

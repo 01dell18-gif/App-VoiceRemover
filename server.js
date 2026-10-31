@@ -30,8 +30,10 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3032;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -95,16 +97,18 @@ async function findPythonAndDemucs() {
     path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Python', 'Python312', 'python.exe'),
     'C:\\Python311\\python.exe',
     'C:\\Program Files\\Python311\\python.exe',
+    'python3',
+    'python',
+    '/usr/bin/python3',
+    '/usr/local/bin/python3',
     'py -3.11',
     'py -3.10',
-    'python',
-    'python3',
     'py'
   ].filter(Boolean);
 
   // Tahap 1: Temukan Python yang valid
   for (const candidate of candidates) {
-    if (candidate.includes('\\') && !fs.existsSync(candidate)) continue;
+    if ((candidate.includes('\\') || candidate.startsWith('/')) && !fs.existsSync(candidate)) continue;
     try {
       await new Promise((resolve, reject) => {
         exec(`"${candidate}" --version`, (err, stdout) => {
@@ -953,8 +957,8 @@ async function init() {
   console.log(`UVR AI:  ${uvrAvailable ? '✅ UVR MDX-Net Siap (Zero Bleed Studio Quality)' : '❌ Not installed'}`);
   console.log(`Demucs:  ${demucsAvailable ? '✅ Demucs AI (htdemucs_ft / htdemucs_6s) Siap!' : 'ℹ️ DSP Mode Aktif (Gunakan pip install demucs untuk kualitas studio)'}`);
   
-  server.listen(PORT, () => {
-    console.log(`\n🚀 Server berjalan di http://localhost:${PORT}`);
+  server.listen(PORT, HOST, () => {
+    console.log(`\n🚀 Server berjalan di http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
     console.log('═══════════════════════════════════════════\n');
   });
 }
