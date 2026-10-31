@@ -631,6 +631,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.isPlaying) {
       if (mode === 'mix') {
         playMix();
+      } else if (mode === 'instrumental') {
+        playInstrumentalOnly();
+      } else if (mode === 'vocals') {
+        playSingleTrack('vocals');
       } else if (state.tracks[mode]) {
         playSingleTrack(mode);
       }
@@ -650,6 +654,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       if (state.playbackMode === 'mix') {
         playMix();
+      } else if (state.playbackMode === 'instrumental') {
+        playInstrumentalOnly();
+      } else if (state.playbackMode === 'vocals') {
+        playSingleTrack('vocals');
       } else if (state.tracks[state.playbackMode]) {
         playSingleTrack(state.playbackMode);
       } else if (state.tracks['instrumental']) {
@@ -661,23 +669,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function playMix() {
-    state.playbackMode = 'mix';
-    updatePillsUI('mix');
+  function playInstrumentalOnly() {
+    state.playbackMode = 'instrumental';
+    updatePillsUI('instrumental');
 
-    // Matikan track original agar tidak menimpa hasil pemisahan
+    // Jika track instrumental gabungan tersedia, langsung putar track tersebut secara solo
+    if (state.tracks['instrumental']) {
+      playSingleTrack('instrumental');
+      return;
+    }
+
+    // Fallback: Jika tidak ada track gabungan instrumental, putar semua stem non-vokal
     if (state.tracks['original']) {
       state.tracks['original'].audio.pause();
+      state.tracks['original'].audio.volume = 0;
       state.tracks['original'].card.classList.remove('playing');
       updateTrackButtonIcon(state.tracks['original'], false);
+    }
+    if (state.tracks['vocals']) {
+      state.tracks['vocals'].audio.pause();
+      state.tracks['vocals'].audio.volume = 0;
+      state.tracks['vocals'].card.classList.remove('playing');
+      updateTrackButtonIcon(state.tracks['vocals'], false);
     }
 
     const syncTime = state.currentTime || (state.primaryTrack ? state.primaryTrack.audio.currentTime : 0);
     const promises = [];
 
-    // Putar hanya stem hasil pemisahan (Instrumental, Vokal, Drum, Bass, dll.)
     Object.values(state.tracks).forEach(t => {
-      if (t.name !== 'original') {
+      if (t.name !== 'vocals' && t.name !== 'original') {
         t.audio.currentTime = syncTime;
         t.audio.playbackRate = state.tempo;
         applyVolume(t);
@@ -685,6 +705,52 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTrackButtonIcon(t, true);
         promises.push(t.audio.play().catch(() => {}));
       }
+    });
+
+    Promise.all(promises).then(() => {
+      state.isPlaying = true;
+      state.currentPlaying = 'instrumental_mix';
+      updateMasterPlayButton(true);
+    });
+  }
+
+  function playMix() {
+    state.playbackMode = 'mix';
+    updatePillsUI('mix');
+
+    // Matikan track original agar tidak menimpa hasil pemisahan
+    if (state.tracks['original']) {
+      state.tracks['original'].audio.pause();
+      state.tracks['original'].audio.volume = 0;
+      state.tracks['original'].card.classList.remove('playing');
+      updateTrackButtonIcon(state.tracks['original'], false);
+    }
+
+    // Cek apakah ada stem individual (drums, bass, dll.)
+    const hasIndividualStems = Boolean(state.tracks['drums'] || state.tracks['bass'] || state.tracks['other']);
+
+    const syncTime = state.currentTime || (state.primaryTrack ? state.primaryTrack.audio.currentTime : 0);
+    const promises = [];
+
+    // Putar hanya stem hasil pemisahan (tanpa duplikasi instrumental gabungan)
+    Object.values(state.tracks).forEach(t => {
+      if (t.name === 'original') return;
+
+      // Jika ada stem individual, jangan putar gabungan instrumental agar tidak tumpang tindih
+      if (hasIndividualStems && t.name === 'instrumental') {
+        t.audio.pause();
+        t.audio.volume = 0;
+        t.card.classList.remove('playing');
+        updateTrackButtonIcon(t, false);
+        return;
+      }
+
+      t.audio.currentTime = syncTime;
+      t.audio.playbackRate = state.tempo;
+      applyVolume(t);
+      t.card.classList.add('playing');
+      updateTrackButtonIcon(t, true);
+      promises.push(t.audio.play().catch(() => {}));
     });
 
     Promise.all(promises).then(() => {
@@ -709,10 +775,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const track = state.tracks[trackName];
     if (!track) return;
 
-    // Hentikan semua track lainnya
+    // Hentikan dan bisukan semua track lainnya secara absolut (Zero Bleed)
     Object.values(state.tracks).forEach(t => {
       if (t.name !== trackName) {
         t.audio.pause();
+        t.audio.volume = 0;
         t.card.classList.remove('playing');
         updateTrackButtonIcon(t, false);
       }
@@ -740,6 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const track = state.tracks[trackName];
     if (track) {
       track.audio.pause();
+      track.audio.volume = 0;
       track.card.classList.remove('playing');
       updateTrackButtonIcon(track, false);
     }
@@ -751,6 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function pauseAllTracks() {
     Object.values(state.tracks).forEach(t => {
       t.audio.pause();
+      t.audio.volume = 0;
       t.card.classList.remove('playing');
       updateTrackButtonIcon(t, false);
     });

@@ -34,7 +34,7 @@ if not defined NODE_CMD (
     )
 )
 
-:: Jika Node.js belum terpasang, tawarkan instalasi otomatis
+:: Jika Node.js belum terpasang, pasang via winget atau installer
 if not defined NODE_CMD (
     echo.
     echo ======================================================================
@@ -42,21 +42,29 @@ if not defined NODE_CMD (
     echo ======================================================================
     echo  Aplikasi web ini membutuhkan Node.js (v18+) untuk dapat dijalankan.
     echo.
-    if exist "%~dp0installers\node-v20.18.0-x64.msi" (
-        echo  [*] Ditemukan paket installer Node.js di folder "installers\".
-        echo  [*] Menjalankan instalasi Node.js...
-        echo.
-        start /wait msiexec /i "%~dp0installers\node-v20.18.0-x64.msi" /qb
-        set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
+    where winget >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        echo  [*] Memasang Node.js LTS secara otomatis via Windows Package Manager (winget)...
+        winget install OpenJS.NodeJS.LTS -e --silent --accept-source-agreements --accept-package-agreements
         if exist "%ProgramFiles%\nodejs\node.exe" (
             set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+            set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
             echo  [OK] Node.js berhasil dipasang!
-        ) else (
-            echo  [INFO] Silakan selesaikan instalasi Node.js, lalu buka kembali file start.bat.
-            pause
-            exit /b 0
         )
-    ) else (
+    )
+    if not defined NODE_CMD (
+        if exist "%~dp0installers\node-v20.18.0-x64.msi" (
+            echo  [*] Ditemukan paket installer Node.js di folder "installers\".
+            echo  [*] Menjalankan instalasi Node.js...
+            start /wait msiexec /i "%~dp0installers\node-v20.18.0-x64.msi" /qb
+            set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
+            if exist "%ProgramFiles%\nodejs\node.exe" (
+                set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+                echo  [OK] Node.js berhasil dipasang!
+            )
+        )
+    )
+    if not defined NODE_CMD (
         echo  Membuka halaman download Node.js resmi di peramban Anda...
         start https://nodejs.org/en/download/
         echo  Silakan unduh dan pasang Node.js LTS, lalu jalankan kembali start.bat ini.
@@ -101,12 +109,12 @@ if not exist "%~dp0node_modules\" (
 echo.
 
 :: -------------------------------------------------------------------
-:: 3. Pemeriksaan & Konfigurasi Mesin AI (Python & Demucs)
+:: 3. Pemeriksaan & Konfigurasi Mesin AI (Python, UVR MDX-Net & Demucs)
 :: -------------------------------------------------------------------
-echo [3/4] Memeriksa Mesin AI Pemisah Audio (Demucs)...
+echo [3/4] Memeriksa Mesin AI Pemisah Audio (Demucs & UVR MDX-Net)...
 set "PY_CMD="
 
-:: Deteksi instalasi Python (diutamakan Python 3.11/3.10 yang mendukung PyTorch)
+:: Deteksi instalasi Python (diutamakan Python 3.11/3.10 yang mendukung PyTorch & ONNX)
 if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
     set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
 ) else if exist "%LocalAppData%\Programs\Python\Python310\python.exe" (
@@ -125,15 +133,25 @@ if not defined PY_CMD (
     where python >nul 2>&1 && set "PY_CMD=python"
 )
 
-:: Jika Python belum ada sama sekali dan tersedia installer
+:: Jika Python belum ada sama sekali, pasang via winget atau installer
 if not defined PY_CMD (
-    if exist "%~dp0installers\python-3.11.9-amd64.exe" (
-        echo  [!] Python belum terpasang. Mesin AI membutuhkan Python 3.11.
-        echo  [*] Menjalankan installer Python 3.11 otomatis...
-        start /wait "" "%~dp0installers\python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 SimpleInstall=1
+    where winget >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        echo  [*] Python belum terpasang. Memasang Python 3.11 via Windows Package Manager (winget)...
+        winget install Python.Python.3.11 -e --silent --accept-source-agreements --accept-package-agreements
         if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
             set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
             echo  [OK] Python 3.11 berhasil dipasang!
+        )
+    )
+    if not defined PY_CMD (
+        if exist "%~dp0installers\python-3.11.9-amd64.exe" (
+            echo  [*] Menjalankan installer Python 3.11 otomatis...
+            start /wait "" "%~dp0installers\python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 SimpleInstall=1
+            if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
+                set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+                echo  [OK] Python 3.11 berhasil dipasang!
+            )
         )
     )
 )
@@ -147,17 +165,29 @@ if defined PY_CMD (
         for /f "tokens=*" %%p in ('"%PY_CMD%" --version') do set "PY_VER=%%p"
         echo [OK] Mesin AI Demucs SIAP! (via %PY_VER%)
     ) else (
-        echo  [*] Python terdeteksi, namun modul AI Demucs belum terpasang.
-        echo  [*] Memasang PyTorch CPU dan Demucs AI sekarang (hanya 1x unduh)...
-        echo      Ini memastikan vokal dan instrumen terpisah 100%% bersih tanpa bocor suara.
+        echo  [*] Menyiapkan modul AI Demucs (Meta Research)...
         "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
         "%PY_CMD%" -m pip install demucs numpy
         "%PY_CMD%" -m demucs --help >nul 2>&1
         if %ERRORLEVEL% EQU 0 (
             set "DEMUCS_READY=1"
-            echo  [OK] Mesin AI Demucs berhasil dipasang dan siap digunakan!
-        ) else (
-            echo  [INFO] Pemisahan akan menggunakan FFmpeg DSP Engine bawaan.
+            echo  [OK] Mesin AI Demucs berhasil dipasang!
+        )
+    )
+
+    :: Cek apakah modul UVR MDX-Net (Zero Bleed Vocal/Music Isolator) sudah terpasang
+    set "UVR_READY=0"
+    "%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        set "UVR_READY=1"
+        echo [OK] Mesin AI UVR MDX-Net SIAP! (Zero Bleed Studio Quality)
+    ) else (
+        echo  [*] Menyiapkan modul AI UVR MDX-Net untuk pemisahan vokal/musik 100%% tanpa bocor suara...
+        "%PY_CMD%" -m pip install audio-separator onnxruntime
+        "%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
+        if %ERRORLEVEL% EQU 0 (
+            set "UVR_READY=1"
+            echo  [OK] Mesin AI UVR MDX-Net berhasil dipasang!
         )
     )
 ) else (

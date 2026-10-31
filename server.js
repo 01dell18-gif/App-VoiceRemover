@@ -81,9 +81,11 @@ const upload = multer({
 // Track active jobs
 const activeJobs = new Map();
 
-// Check Python & Demucs availability
+// Check Python & Demucs & UVR availability
 let pythonCmd = null;
 let demucsAvailable = false;
+let uvrAvailable = false;
+let audioSeparatorBin = null;
 
 async function findPythonAndDemucs() {
   const candidates = [
@@ -100,26 +102,7 @@ async function findPythonAndDemucs() {
     'py'
   ].filter(Boolean);
 
-  // Tahap 1: Prioritaskan kandidat Python yang sudah terpasang modul AI Demucs
-  for (const candidate of candidates) {
-    if (candidate.includes('\\') && !fs.existsSync(candidate)) continue;
-    try {
-      await new Promise((resolve, reject) => {
-        exec(`"${candidate}" -m demucs --help`, (err) => {
-          if (err) reject(err);
-          else resolve(true);
-        });
-      });
-      pythonCmd = candidate;
-      demucsAvailable = true;
-      console.log(`✅ Mesin AI Demucs aktif melalui Python: ${candidate}`);
-      return;
-    } catch (e) {
-      // Belum ada demucs, lanjutkan pencarian
-    }
-  }
-
-  // Tahap 2: Jika belum ada Demucs, cari Python manapun yang valid
+  // Tahap 1: Temukan Python yang valid
   for (const candidate of candidates) {
     if (candidate.includes('\\') && !fs.existsSync(candidate)) continue;
     try {
@@ -130,17 +113,52 @@ async function findPythonAndDemucs() {
         });
       });
       pythonCmd = candidate;
-      demucsAvailable = false;
-      console.log(`ℹ️ Python terdeteksi (${candidate}), tetapi modul 'demucs' belum terpasang.`);
-      return;
+      break;
+    } catch (e) {}
+  }
+
+  // Tahap 2: Cek apakah Demucs terpasang
+  if (pythonCmd) {
+    try {
+      await new Promise((resolve, reject) => {
+        exec(`"${pythonCmd}" -m demucs --help`, (err) => {
+          if (err) reject(err);
+          else resolve(true);
+        });
+      });
+      demucsAvailable = true;
+      console.log(`✅ Mesin AI Demucs aktif melalui: ${pythonCmd}`);
     } catch (e) {
-      continue;
+      demucsAvailable = false;
+    }
+
+    // Tahap 3: Cek apakah audio-separator (UVR MDX-Net) terpasang
+    const scriptsDir = path.join(path.dirname(pythonCmd), 'Scripts');
+    const uvrExe = path.join(scriptsDir, 'audio-separator.exe');
+    if (fs.existsSync(uvrExe)) {
+      audioSeparatorBin = uvrExe;
+      uvrAvailable = true;
+      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${uvrExe}`);
+    } else {
+      try {
+        await new Promise((resolve, reject) => {
+          exec(`"${pythonCmd}" -m audio_separator.utils.cli --version`, (err) => {
+            if (err) reject(err);
+            else resolve(true);
+          });
+        });
+        audioSeparatorBin = `"${pythonCmd}" -m audio_separator.utils.cli`;
+        uvrAvailable = true;
+        console.log(`✅ Mesin AI UVR MDX-Net Studio aktif via modul Python`);
+      } catch (e) {
+        uvrAvailable = false;
+      }
     }
   }
 
-  pythonCmd = null;
-  demucsAvailable = false;
-  console.log('ℹ️ Python tidak ditemukan. Menggunakan FFmpeg DSP Engine sebagai fallback.');
+  if (!demucsAvailable && !uvrAvailable) {
+    console.log('ℹ️ Mesin AI tidak terdeteksi. Menggunakan FFmpeg DSP Engine sebagai fallback.');
+  }
 }
 
 async function checkFFmpeg() {
@@ -172,8 +190,9 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     python: !!pythonCmd,
     demucs: demucsAvailable,
+    uvr: uvrAvailable,
     ffmpeg: ffmpegAvailable,
-    engine: demucsAvailable ? 'Demucs AI' : (ffmpegAvailable ? 'FFmpeg DSP Engine' : 'Basic')
+    engine: uvrAvailable ? 'UVR MDX-Net AI (Zero Bleed)' : (demucsAvailable ? 'Demucs AI' : 'FFmpeg DSP Engine')
   });
 });
 
@@ -400,7 +419,10 @@ async function processAudio(jobId, jobInfo) {
   try {
     emitProgress(jobId, 10, 'Menganalisis file audio...');
 
-    if (demucsAvailable) {
+    // Untuk pemisahan Vokal & Musik (2 track), gunakan UVR MDX-Net jika tersedia (zero-bleed)
+    if (jobInfo.separationType === 'vocals_music' && uvrAvailable) {
+      await processWithUVR(jobId, jobInfo, outputDir);
+    } else if (demucsAvailable) {
       await processWithDemucs(jobId, jobInfo, outputDir);
     } else {
       await processWithFFmpeg(jobId, jobInfo, outputDir);
@@ -414,17 +436,83 @@ async function processAudio(jobId, jobInfo) {
   }
 }
 
+async function processWithUVR(jobId, jobInfo, outputDir) {
+  return new Promise((resolve, reject) => {
+    emitProgress(jobId, 15, 'Memulai isolasi studio dengan AI UVR MDX-Net (Zero Bleed)...');
+
+    const ffmpegDir = path.dirname(ffmpegBin);
+    const env = Object.assign({}, process.env);
+    env.PATH = `${ffmpegDir};${env.PATH || ''}`;
+
+    const modelDir = path.join(__dirname, 'models');
+    const args = [
+      jobInfo.filepath,
+      '--output_dir', outputDir,
+      '--model_file_dir', modelDir,
+      '--model_filename', 'UVR-MDX-NET-Inst_HQ_3.onnx',
+      '--output_format', 'MP3',
+      '--output_bitrate', '320k',
+      '--mdx_overlap', '0.5',
+      '--mdx_enable_denoise'
+    ];
+
+    const cmd = audioSeparatorBin || 'audio-separator';
+    console.log(`[Job ${jobId}] Menjalankan AI UVR MDX-Net: ${cmd} ${args.join(' ')}`);
+
+    const proc = spawn(cmd, args, { env, windowsHide: true });
+    let lastProgress = 20;
+
+    function handleData(data) {
+      const output = data.toString();
+      const match = output.match(/(\d+)%/);
+      if (match) {
+        const pct = Math.min(95, Math.max(lastProgress, parseInt(match[1])));
+        if (pct > lastProgress) {
+          lastProgress = pct;
+          emitProgress(jobId, lastProgress, `Memproses isolasi studio AI UVR MDX-Net: ${lastProgress}%`);
+        }
+      }
+    }
+
+    proc.stdout.on('data', handleData);
+    proc.stderr.on('data', handleData);
+
+    proc.on('close', async (code) => {
+      if (code !== 0) {
+        console.warn(`UVR keluar dengan kode ${code}, beralih ke Demucs AI fallback...`);
+        return processWithDemucs(jobId, jobInfo, outputDir).then(resolve).catch(reject);
+      }
+
+      const results = findOutputFiles(outputDir, jobInfo);
+      if (results.length === 0) {
+        console.warn('UVR selesai namun file tidak ditemukan, beralih ke Demucs AI fallback...');
+        return processWithDemucs(jobId, jobInfo, outputDir).then(resolve).catch(reject);
+      }
+
+      jobInfo.results = results;
+      jobInfo.status = 'completed';
+      emitProgress(jobId, 100, 'Selesai! Vokal dan instrumen berhasil dipisahkan 100% bersih tanpa bocor.');
+      resolve();
+    });
+
+    proc.on('error', (err) => {
+      console.warn('UVR spawn error, beralih ke Demucs AI fallback:', err);
+      processWithDemucs(jobId, jobInfo, outputDir).then(resolve).catch(reject);
+    });
+  });
+}
+
 async function processWithDemucs(jobId, jobInfo, outputDir) {
   return new Promise((resolve, reject) => {
     emitProgress(jobId, 15, 'Memulai pemisahan AI Demucs (Meta Research)...');
 
-    let model = 'htdemucs';
+    let model = 'htdemucs_ft';
     switch (jobInfo.separationType) {
       case 'vocals_music':
-        model = 'htdemucs';
+        model = 'htdemucs_ft';
         break;
       case '4stems':
-        model = 'htdemucs';
+        model = 'htdemucs_ft';
         break;
       case '5stems':
         model = 'htdemucs_6s';
@@ -437,11 +525,14 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
       '-n', model,
       '--out', outputDir,
       '--mp3',
-      '--mp3-bitrate', '256'
+      '--mp3-bitrate', '320',
+      '--shifts', '1',
+      '--overlap', '0.5'
     ];
 
     if (isTwoStems) {
       args.push('--two-stems', 'vocals');
+      args.push('--other-method', 'add');
     }
 
     args.push(jobInfo.filepath);
@@ -476,11 +567,16 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
     proc.stdout.on('data', handleData);
     proc.stderr.on('data', handleData);
 
-    proc.on('close', (code) => {
+    proc.on('close', async (code) => {
       if (code !== 0) {
         console.warn(`Demucs keluar dengan kode ${code}, beralih ke FFmpeg DSP fallback`);
         processWithFFmpeg(jobId, jobInfo, outputDir).then(resolve).catch(reject);
         return;
+      }
+
+      // Jika 4 stems atau 5 stems, gabungkan stem non-vokal menjadi instrumental karaoke
+      if (jobInfo.separationType === '4stems' || jobInfo.separationType === '5stems') {
+        await createCombinedInstrumental(outputDir, jobInfo);
       }
 
       const results = findOutputFiles(outputDir, jobInfo);
@@ -501,6 +597,43 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
       processWithFFmpeg(jobId, jobInfo, outputDir).then(resolve).catch(reject);
     });
   });
+}
+
+async function createCombinedInstrumental(outputDir, jobInfo) {
+  try {
+    const nonVocalFiles = [];
+    function scan(d) {
+      if (!fs.existsSync(d)) return;
+      fs.readdirSync(d).forEach(f => {
+        const p = path.join(d, f);
+        if (fs.statSync(p).isDirectory()) scan(p);
+        else if (['.mp3', '.wav'].includes(path.extname(f).toLowerCase())) {
+          const base = path.parse(f).name.toLowerCase();
+          if (!base.includes('vocal') && !base.includes('instrumental')) {
+            nonVocalFiles.push(p);
+          }
+        }
+      });
+    }
+    scan(outputDir);
+
+    if (nonVocalFiles.length > 1) {
+      const destPath = path.join(outputDir, 'instrumental.mp3');
+      const ffmpegArgs = [];
+      nonVocalFiles.forEach(f => {
+        ffmpegArgs.push('-i', f);
+      });
+      ffmpegArgs.push(
+        '-filter_complex', `amix=inputs=${nonVocalFiles.length}:normalize=0`,
+        '-b:a', '320k',
+        '-y', destPath
+      );
+      await runFFmpeg(ffmpegArgs);
+      console.log(`[Job ${jobInfo.id}] Berhasil menggabungkan ${nonVocalFiles.length} stem ke instrumental.mp3`);
+    }
+  } catch (e) {
+    console.warn('Gagal membuat instrumental gabungan:', e.message);
+  }
 }
 
 async function processWithFFmpeg(jobId, jobInfo, outputDir) {
@@ -673,6 +806,7 @@ function runFFmpeg(args) {
 
 function findOutputFiles(outputDir, jobInfo) {
   const results = [];
+  const seen = new Set();
   
   function searchDir(dir) {
     if (!fs.existsSync(dir)) return;
@@ -722,12 +856,15 @@ function findOutputFiles(outputDir, jobInfo) {
             icon = 'other';
           }
 
-          results.push({
-            name,
-            label,
-            path: fullPath,
-            icon
-          });
+          if (!seen.has(name)) {
+            seen.add(name);
+            results.push({
+              name,
+              label,
+              path: fullPath,
+              icon
+            });
+          }
         }
       }
     }
@@ -766,10 +903,12 @@ setInterval(() => {
     if (!fs.existsSync(dirPath)) return;
     
     fs.readdirSync(dirPath).forEach(file => {
+      if (file === '.gitkeep') return;
       const filePath = path.join(dirPath, file);
       try {
         const stat = fs.statSync(filePath);
-        if (Date.now() - stat.mtime.getTime() > maxAge) {
+        const fileAge = Date.now() - (stat.birthtimeMs || stat.ctimeMs || stat.mtimeMs);
+        if (fileAge > maxAge) {
           if (stat.isDirectory()) {
             fs.rmSync(filePath, { recursive: true, force: true });
           } else {
@@ -793,7 +932,8 @@ async function init() {
   console.log('\n─── Status Sistem ───');
   console.log(`FFmpeg:  ${ffmpegAvailable ? '✅ Ready (' + ffmpegBin + ')' : '❌ Not found'}`);
   console.log(`Python:  ${pythonCmd ? '✅ ' + pythonCmd : '❌ Tidak terdeteksi'}`);
-  console.log(`Demucs:  ${demucsAvailable ? '✅ AI Deep Learning Engine Siap!' : 'ℹ️ DSP Mode Aktif (Gunakan pip install demucs untuk kualitas studio)'}`);
+  console.log(`UVR AI:  ${uvrAvailable ? '✅ UVR MDX-Net Siap (Zero Bleed Studio Quality)' : '❌ Not installed'}`);
+  console.log(`Demucs:  ${demucsAvailable ? '✅ Demucs AI (htdemucs_ft / htdemucs_6s) Siap!' : 'ℹ️ DSP Mode Aktif (Gunakan pip install demucs untuk kualitas studio)'}`);
   
   server.listen(PORT, () => {
     console.log(`\n🚀 Server berjalan di http://localhost:${PORT}`);
