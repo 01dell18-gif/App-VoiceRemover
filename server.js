@@ -506,13 +506,13 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
   return new Promise((resolve, reject) => {
     emitProgress(jobId, 15, 'Memulai pemisahan AI Demucs (Meta Research)...');
 
-    let model = 'htdemucs_ft';
+    let model = 'htdemucs';
     switch (jobInfo.separationType) {
       case 'vocals_music':
-        model = 'htdemucs_ft';
+        model = 'htdemucs';
         break;
       case '4stems':
-        model = 'htdemucs_ft';
+        model = 'htdemucs';
         break;
       case '5stems':
         model = 'htdemucs_6s';
@@ -523,11 +523,12 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
     const args = [
       '-m', 'demucs',
       '-n', model,
+      '-d', 'cpu',
       '--out', outputDir,
       '--mp3',
       '--mp3-bitrate', '320',
       '--shifts', '1',
-      '--overlap', '0.5'
+      '--overlap', '0.25'
     ];
 
     if (isTwoStems) {
@@ -871,6 +872,23 @@ function findOutputFiles(outputDir, jobInfo) {
   }
 
   searchDir(outputDir);
+
+  const orderPriority = {
+    instrumental: 1,
+    vocals: 2,
+    bass: 3,
+    drums: 4,
+    piano: 5,
+    guitar: 6,
+    other: 7
+  };
+
+  results.sort((a, b) => {
+    const prioA = orderPriority[a.name] || 99;
+    const prioB = orderPriority[b.name] || 99;
+    return prioA - prioB;
+  });
+
   return results;
 }
 

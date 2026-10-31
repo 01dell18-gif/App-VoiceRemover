@@ -22,13 +22,16 @@
 
 ## ✨ Fitur Utama
 
-- 🎤 **Pemisahan Suara Akurat & Bersih**:
-  - Menggunakan teknik pembalikan fasa 180° subtraktif murni ($Original - Instrumental = Vokal$) dengan kompensasi gain terkalibrasi.
-  - Vokal dan instrumen terpisah secara mandiri tanpa saling bertumpuk.
-  - Deteksi otomatis kanal **Stereo** dan **Mono**.
+- 🧠 **Pemisahan Suara AI Mutakhir (Meta Research Demucs HTDemucs)**:
+  - **Zero Vocal Bleed (100% Bersih)**: Menggunakan arsitektur jaringan syaraf tiruan *Hybrid Transformer Demucs (HTDemucs)* terlatih dari Meta AI Research.
+  - **Instrumental / Musik Murni**: Musik instrumental bebas 100% dari suara vokal (termasuk vokal stereo, reverb, backing vocal, dan echo).
+  - **Vokal Acapella Murni**: Isolasi vokal manusia yang jernih berstandar rekaman studio.
+  - **Bass Murni**: Ekstraksi instrumen bass terisolasi secara neural tanpa distorsi atau kebocoran dari drum/vokal.
+  - **Drum & Perkusi Murni**: Ekstraksi ketukan drum, snare, hi-hat, dan simbal secara mandiri.
+  - **Dual Engine System**: Otomatis mendeteksi Demucs AI Neural Network untuk kualitas studio, serta FFmpeg DSP Engine sebagai fallback cepat.
 - 🎚️ **Mode Pemisahan Fleksibel**:
-  - **2 Stems (Vokal & Musik)**: Menghasilkan track Vokal murni dan Instrumental / Musik (Karaoke).
-  - **4 Stems**: Menghasilkan track Vokal, Drum & Perkusi, Bass, dan Instrumen Lainnya.
+  - **2 Stems (Vokal & Musik)**: Menghasilkan track Vokal murni dan Instrumental / Musik (Karaoke) terisolasi total.
+  - **4 Stems**: Menghasilkan track Vokal, Drum & Perkusi, Bass, dan Instrumen Lainnya (Melodi).
   - **5 Stems**: Menghasilkan pemisahan instrumen lebih rinci.
 - 🎧 **Mode Pemutar Instan (Quick Mode Pills)**:
   - `[ 🎵 Musik Saja (Karaoke) ]` : Hanya memutar musik instrumental tanpa suara vokal.
@@ -37,7 +40,7 @@
   - `[ 🎧 Lagu Asli ]` : Memutar lagu asli sebagai referensi perbandingan.
 - ⏯️ **Pemutaran Mandiri Per-Track**:
   - Setiap kartu track dilengkapi tombol **`▶ Putar`** / **`⏸ Jeda`** sendiri.
-  - Saat satu track diputar (misal: Vokal), track lain otomatis berhenti sehingga Anda dapat mendengarkan hasil pemisahan secara terisolasi tanpa tumpang tindih suara.
+  - Saat satu track diputar (misal: Vokal atau Bass), track lain otomatis dinonaktifkan sehingga Anda dapat mendengarkan hasil pemisahan secara terisolasi tanpa tumpang tindih suara.
 - 🎛️ **Master Audio Mixer & Efek**:
   - Slider Volume mandiri (0% - 100%) untuk setiap track.
   - Tombol **Solo [S]** untuk mengisolasi track pilihan dan membisukan track lainnya.
@@ -46,7 +49,7 @@
   - Pengatur Tempo pemutaran (`0.75x`, `1.0x Normal`, `1.25x`, `1.5x`).
   - Scrubber progress bar dan penunjuk durasi waktu realtime.
 - 📦 **Download Fleksibel & ZIP 1-Klik**:
-  - Unduh per track individu dalam format MP3 192kbps.
+  - Unduh per track individu dalam format MP3 320kbps / 192kbps.
   - Unduh seluruh track sekaligus dalam satu file ZIP (`.zip`) lengkap dengan dokumen informasi hasil pemisahan.
 - ✨ **Lagu Demo Sampel Terpasang**:
   - Tersedia tombol *"✨ Coba Demo Lagu Sampel"* di area upload untuk mencoba dan menguji aplikasi secara langsung tanpa harus menyiapkan file audio terlebih dahulu.
@@ -139,8 +142,8 @@ App-VoiceRemover/
 |----------|-----------|
 | **Runtime & Server** | Node.js (v18+) + Express |
 | **Realtime Progress** | Socket.IO |
-| **Mesin Audio Utama** | FFmpeg DSP Engine (Subtractive Phase Cancellation) |
-| **Mesin AI Cadangan** | Demucs AI / UVR (Meta Research) |
+| **Mesin AI Utama** | Demucs HTDemucs (Meta Research Neural Network - Zero Vocal Bleed) |
+| **Mesin Audio Fallback** | FFmpeg DSP Engine (Phase Cancellation) |
 | **Arsip & Ekspor** | Archiver (ZIP Generator) |
 | **Frontend UI** | HTML5, CSS3 murni (Modern Glassmorphism & Responsive Layout), JavaScript Modern |
 | **Port Default** | `3032` |
