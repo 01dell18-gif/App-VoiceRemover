@@ -126,6 +126,45 @@ pm2 start server.js --name "fyj-voice"
 pm2 save
 ```
 
+#### D. Konfigurasi Nginx Reverse Proxy (Domain Web & HTTPS SSL)
+
+Jika aplikasi dihubungkan dengan domain web (contoh: `suara.domainanda.com`), gunakan konfigurasi Nginx berikut pada `/etc/nginx/sites-available/fyj-voice`:
+
+```nginx
+server {
+    listen 80;
+    server_name suara.domainanda.com;
+
+    # Izinkan upload lagu hingga 100MB
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3032;
+        proxy_http_version 1.1;
+
+        # Dukungan WebSocket Socket.IO real-time
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Forward headers domain & IP
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeout pemrosesan AI untuk lagu berdurasi panjang
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+    }
+}
+```
+
+Kemudian aktifkan SSL HTTPS gratis dengan Certbot:
+```bash
+sudo certbot --nginx -d suara.domainanda.com
+```
+
 ## 📦 Paket Installer Offline (Perangkat Lain)
 
 Di dalam folder **[`installers/`](installers/)** telah disediakan file instalasi resmi agar aplikasi dapat langsung dipasang dan dijalankan di komputer mana saja tanpa koneksi internet:

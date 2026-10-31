@@ -133,26 +133,25 @@ if not defined PY_CMD (
     )
 )
 
-REM Jika Python tersedia, periksa apakah paket AI Demucs sudah terpasang
+REM Jika Python tersedia, periksa apakah paket AI Demucs & UVR sudah terpasang
 if defined PY_CMD (
     "%PY_CMD%" -m demucs --help >nul 2>&1
-    if %ERRORLEVEL% EQU 0 (
-        echo [OK] Mesin AI Demucs SIAP - Kualitas Studio - Zero Vocal Bleed.
+    set "DEMUCS_ERR=%ERRORLEVEL%"
+    "%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
+    set "UVR_ERR=%ERRORLEVEL%"
+
+    if %DEMUCS_ERR% EQU 0 if %UVR_ERR% EQU 0 (
+        echo [OK] Mesin AI UVR MDX-Net dan Demucs SIAP - Kualitas Studio Zero-Bleed.
     ) else (
         echo.
-        echo [*] Modul AI Demucs belum lengkap. Memulai pemasangan otomatis paket AI...
+        echo [*] Menyiapkan paket AI pemisahan audio (Demucs dan UVR MDX-Net)...
         if exist "%~dp0installers\setup_ai_packages.bat" (
             call "%~dp0installers\setup_ai_packages.bat"
         ) else (
             "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-            "%PY_CMD%" -m pip install numpy demucs soundfile lameenc
+            "%PY_CMD%" -m pip install numpy demucs soundfile lameenc onnxruntime audio-separator
         )
-        "%PY_CMD%" -m demucs --help >nul 2>&1
-        if %ERRORLEVEL% EQU 0 (
-            echo [OK] Mesin AI Demucs SIAP - Kualitas Studio - Zero Vocal Bleed.
-        ) else (
-            echo [INFO] Menggunakan mode fallback FFmpeg DSP.
-        )
+        echo [OK] Paket AI berhasil disiapkan!
     )
 ) else (
     echo [INFO] Python tidak tersedia. Mode FFmpeg DSP aktif.

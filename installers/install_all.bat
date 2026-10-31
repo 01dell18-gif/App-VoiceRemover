@@ -108,7 +108,7 @@ if "%DEMUCS_READY%"=="1" (
         call "%~dp0setup_ai_packages.bat"
     ) else (
         "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-        "%PY_CMD%" -m pip install numpy demucs soundfile lameenc
+        "%PY_CMD%" -m pip install numpy demucs soundfile lameenc onnxruntime audio-separator
     )
 )
 echo.

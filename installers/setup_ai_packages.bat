@@ -1,9 +1,9 @@
 @echo off
-title FYJ Channel Voice - Pemasangan Paket AI Demucs
+title FYJ Channel Voice - Pemasangan Paket AI Pemisah Audio
 color 0B
 
 echo ======================================================================
-echo       FYJ Channel Voice - Pemasangan Paket AI Demucs (Meta Research)
+echo    FYJ Channel Voice - Pemasangan Paket AI (Demucs & UVR MDX-Net)
 echo ======================================================================
 echo.
 
@@ -27,27 +27,39 @@ for /f "tokens=*" %%v in ('"%PY_CMD%" --version') do set "PY_VER=%%v"
 echo [*] Menggunakan: %PY_VER% (%PY_CMD%)
 echo.
 
-echo [1/3] Memeriksa dan memperbarui pip...
+echo [1/4] Memeriksa dan memperbarui pip...
 "%PY_CMD%" -m pip install --upgrade pip
 
 echo.
-echo [2/3] Memasang PyTorch CPU Engine...
+echo [2/4] Memasang PyTorch CPU Engine...
 "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 echo.
-echo [3/3] Memasang Demucs AI, NumPy, SoundFile, dan LameEnc...
+echo [3/4] Memasang Demucs AI, NumPy, SoundFile, dan LameEnc...
 "%PY_CMD%" -m pip install numpy demucs soundfile lameenc
 
 echo.
+echo [4/4] Memasang UVR MDX-Net dan ONNX Runtime (Zero Bleed Studio Quality)...
+"%PY_CMD%" -m pip install onnxruntime audio-separator
+
+echo.
 echo ======================================================================
-echo  Verifikasi Instalasi AI Demucs...
+echo  Verifikasi Instalasi AI...
 echo ======================================================================
 "%PY_CMD%" -m demucs --help >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    echo [OK] Mesin AI Demucs BERHASIL terpasang dan siap digunakan!
-    echo Kualitas Studio Zero-Bleed - Vokal, Musik, Bass, Drum - aktif.
+    echo [OK] Mesin AI Demucs SIAP! (Pemisahan 4 & 5+ Stems)
 ) else (
     echo [!] Terjadi kendala saat memverifikasi Demucs.
 )
+
+"%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [OK] Mesin AI UVR MDX-Net SIAP! (Isolasi Vokal & Musik Zero-Bleed)
+) else (
+    echo [!] Modul UVR audio-separator belum aktif.
+)
+
 echo ======================================================================
 echo.
+pause

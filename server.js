@@ -26,7 +26,8 @@ try {
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: { origin: '*' },
+  transports: ['polling', 'websocket']
 });
 
 const PORT = process.env.PORT || 3032;
@@ -87,7 +88,7 @@ const activeJobs = new Map();
 let pythonCmd = null;
 let demucsAvailable = false;
 let uvrAvailable = false;
-let audioSeparatorBin = null;
+let uvrExec = { cmd: 'audio-separator', args: [] };
 
 async function findPythonAndDemucs() {
   const candidates = [
@@ -136,26 +137,51 @@ async function findPythonAndDemucs() {
       demucsAvailable = false;
     }
 
-    // Tahap 3: Cek apakah audio-separator (UVR MDX-Net) terpasang
+    // Tahap 3: Cek apakah audio-separator (UVR MDX-Net) terpasang (Windows, Linux, Docker)
     const scriptsDir = path.join(path.dirname(pythonCmd), 'Scripts');
-    const uvrExe = path.join(scriptsDir, 'audio-separator.exe');
-    if (fs.existsSync(uvrExe)) {
-      audioSeparatorBin = uvrExe;
+    const uvrExeWin = path.join(scriptsDir, 'audio-separator.exe');
+    const uvrExeLin = path.join(path.dirname(pythonCmd), 'audio-separator');
+
+    if (fs.existsSync(uvrExeWin)) {
+      uvrExec = { cmd: uvrExeWin, args: [] };
       uvrAvailable = true;
-      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${uvrExe}`);
+      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${uvrExeWin}`);
+    } else if (fs.existsSync(uvrExeLin)) {
+      uvrExec = { cmd: uvrExeLin, args: [] };
+      uvrAvailable = true;
+      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${uvrExeLin}`);
     } else {
       try {
         await new Promise((resolve, reject) => {
-          exec(`"${pythonCmd}" -m audio_separator.utils.cli --version`, (err) => {
+          exec('audio-separator --version', (err) => {
             if (err) reject(err);
             else resolve(true);
           });
         });
-        audioSeparatorBin = `"${pythonCmd}" -m audio_separator.utils.cli`;
+        uvrExec = { cmd: 'audio-separator', args: [] };
         uvrAvailable = true;
-        console.log(`✅ Mesin AI UVR MDX-Net Studio aktif via modul Python`);
+        console.log(`✅ Mesin AI UVR MDX-Net Studio aktif via system PATH`);
       } catch (e) {
-        uvrAvailable = false;
+        try {
+          await new Promise((resolve, reject) => {
+            exec(`"${pythonCmd}" -m audio_separator.utils.cli --version`, (err) => {
+              if (err) reject(err);
+              else resolve(true);
+            });
+          });
+          let pyBin = pythonCmd;
+          let pyPrefixArgs = [];
+          if (pythonCmd.startsWith('py -')) {
+            const parts = pythonCmd.split(' ');
+            pyBin = parts[0];
+            pyPrefixArgs = parts.slice(1);
+          }
+          uvrExec = { cmd: pyBin, args: [...pyPrefixArgs, '-m', 'audio_separator.utils.cli'] };
+          uvrAvailable = true;
+          console.log(`✅ Mesin AI UVR MDX-Net Studio aktif via modul Python`);
+        } catch (e2) {
+          uvrAvailable = false;
+        }
       }
     }
   }
@@ -241,9 +267,37 @@ app.post('/api/upload', upload.single('audio'), async (req, res) => {
   }
 });
 
+// Helper untuk mengambil job aktif atau merekonstruksi dari disk jika server di-restart
+function getOrRecoverJob(jobId) {
+  let job = activeJobs.get(jobId);
+  if (job) return job;
+
+  const outputDir = path.join(__dirname, 'outputs', jobId);
+  if (fs.existsSync(outputDir)) {
+    const fakeJobInfo = { id: jobId, filename: 'audio_file.mp3', separationType: 'unknown' };
+    const results = findOutputFiles(outputDir, fakeJobInfo);
+    if (results && results.length > 0) {
+      job = {
+        id: jobId,
+        filename: 'Audio_Pemisahan',
+        filepath: '',
+        separationType: results.length > 2 ? `${results.length}stems` : 'vocals_music',
+        outputFormat: 'mp3',
+        status: 'completed',
+        progress: 100,
+        createdAt: new Date().toISOString(),
+        results: results
+      };
+      activeJobs.set(jobId, job);
+      return job;
+    }
+  }
+  return null;
+}
+
 // Get job status
 app.get('/api/status/:jobId', (req, res) => {
-  const job = activeJobs.get(req.params.jobId);
+  const job = getOrRecoverJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ error: 'Job tidak ditemukan' });
   }
@@ -252,7 +306,7 @@ app.get('/api/status/:jobId', (req, res) => {
 
 // Download separated track
 app.get('/api/download/:jobId/:track', (req, res) => {
-  const job = activeJobs.get(req.params.jobId);
+  const job = getOrRecoverJob(req.params.jobId);
   if (!job || !job.results) {
     return res.status(404).json({ error: 'File tidak ditemukan' });
   }
@@ -284,7 +338,7 @@ app.get('/api/download/:jobId/:track', (req, res) => {
 
 // Download all tracks as a real ZIP file
 app.get('/api/download-zip/:jobId', (req, res) => {
-  const job = activeJobs.get(req.params.jobId);
+  const job = getOrRecoverJob(req.params.jobId);
   if (!job || !job.results || job.results.length === 0) {
     return res.status(404).json({ error: 'Hasil pemisahan tidak ditemukan' });
   }
@@ -345,7 +399,7 @@ Dibuat dengan FYJ Channel Voice (https://github.com/01dell18-gif/App-VoiceRemove
 
 // Download all tracks info list (JSON fallback)
 app.get('/api/download-all/:jobId', (req, res) => {
-  const job = activeJobs.get(req.params.jobId);
+  const job = getOrRecoverJob(req.params.jobId);
   if (!job || !job.results) {
     return res.status(404).json({ error: 'File tidak ditemukan' });
   }
@@ -362,7 +416,7 @@ app.get('/api/download-all/:jobId', (req, res) => {
 
 // Stream audio for preview
 app.get('/api/stream/:jobId/:track', (req, res) => {
-  const job = activeJobs.get(req.params.jobId);
+  const job = getOrRecoverJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ error: 'File tidak ditemukan' });
   }
@@ -446,7 +500,7 @@ async function processWithUVR(jobId, jobInfo, outputDir) {
 
     const ffmpegDir = path.dirname(ffmpegBin);
     const env = Object.assign({}, process.env);
-    env.PATH = `${ffmpegDir};${env.PATH || ''}`;
+    env.PATH = `${ffmpegDir}${path.delimiter}${env.PATH || ''}`;
 
     const modelDir = path.join(__dirname, 'models');
     const args = [
@@ -460,10 +514,12 @@ async function processWithUVR(jobId, jobInfo, outputDir) {
       '--mdx_enable_denoise'
     ];
 
-    const cmd = audioSeparatorBin || 'audio-separator';
-    console.log(`[Job ${jobId}] Menjalankan AI UVR MDX-Net: ${cmd} ${args.join(' ')}`);
+    const cmd = uvrExec ? uvrExec.cmd : 'audio-separator';
+    const prefixArgs = uvrExec ? uvrExec.args : [];
+    const fullArgs = [...prefixArgs, ...args];
+    console.log(`[Job ${jobId}] Menjalankan AI UVR MDX-Net: ${cmd} ${fullArgs.join(' ')}`);
 
-    const proc = spawn(cmd, args, { env, windowsHide: true });
+    const proc = spawn(cmd, fullArgs, { env, windowsHide: true });
     let lastProgress = 20;
 
     function handleData(data) {
@@ -510,13 +566,17 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
   return new Promise((resolve, reject) => {
     emitProgress(jobId, 15, 'Memulai pemisahan AI Demucs (Meta Research)...');
 
-    let model = 'htdemucs';
+    const ffmpegDir = path.dirname(ffmpegBin);
+    const env = Object.assign({}, process.env);
+    env.PATH = `${ffmpegDir}${path.delimiter}${env.PATH || ''}`;
+
+    let model = 'htdemucs_ft';
     switch (jobInfo.separationType) {
       case 'vocals_music':
-        model = 'htdemucs';
+        model = 'htdemucs_ft';
         break;
       case '4stems':
-        model = 'htdemucs';
+        model = 'htdemucs_ft';
         break;
       case '5stems':
         model = 'htdemucs_6s';
@@ -527,12 +587,11 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
     const args = [
       '-m', 'demucs',
       '-n', model,
-      '-d', 'cpu',
       '--out', outputDir,
       '--mp3',
       '--mp3-bitrate', '320',
       '--shifts', '1',
-      '--overlap', '0.25'
+      '--overlap', '0.5'
     ];
 
     if (isTwoStems) {
@@ -553,7 +612,7 @@ async function processWithDemucs(jobId, jobInfo, outputDir) {
 
     console.log(`[Job ${jobId}] Menjalankan AI Demucs: ${cmd} ${fullArgs.join(' ')}`);
 
-    const proc = spawn(cmd, fullArgs, { windowsHide: true });
+    const proc = spawn(cmd, fullArgs, { env, windowsHide: true });
     
     let lastProgress = 20;
 
