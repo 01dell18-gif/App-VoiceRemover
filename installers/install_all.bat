@@ -1,22 +1,21 @@
 @echo off
-chcp 65001 >nul
 title FYJ Channel Voice - Installer Aplikasi Pendukung
 color 0A
 
 echo ======================================================================
-echo       📦 FYJ Channel Voice - Installer Aplikasi Pendukung 📦
+echo       FYJ Channel Voice - Installer Aplikasi Pendukung
 echo ======================================================================
 echo.
 echo Installer ini akan memasang aplikasi yang dibutuhkan oleh 
 echo FYJ Channel Voice agar dapat berjalan di perangkat ini.
 echo.
-echo 1. Node.js LTS (Wajib - Runtime Server & Web App)
+echo 1. Node.js LTS (Wajib - Runtime Server dan Web App)
 echo 2. Python 3.11 (Opsional - Mesin AI Pemisah Audio)
 echo.
 echo ======================================================================
 echo.
 
-:: 1. Cek & Pasang Node.js
+REM 1. Cek dan Pasang Node.js
 echo [1/2] Memeriksa Node.js...
 where node >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
@@ -36,8 +35,8 @@ if %ERRORLEVEL% EQU 0 (
 )
 echo.
 
-:: 2. Cek & Pasang Python & Demucs AI
-echo [2/2] Memeriksa Python & Modul AI Demucs...
+REM 2. Cek dan Pasang Python
+echo [2/2] Memeriksa Python...
 set "PY_CMD="
 if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
     set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
@@ -65,15 +64,11 @@ if not defined PY_CMD (
 if defined PY_CMD (
     for /f "tokens=*" %%p in ('"%PY_CMD%" --version') do set PY_VER=%%p
     echo [OK] Python terpasang: %PY_VER%
-    echo [*] Memeriksa dan memasang modul AI Demucs...
-    "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-    "%PY_CMD%" -m pip install demucs numpy
-    echo [OK] Modul AI Demucs berhasil dipasang!
 )
 echo.
 
 echo ======================================================================
-echo  ✅ Semua pemeriksaan dan instalasi selesai!
+echo  [OK] Semua pemeriksaan dan instalasi selesai!
 echo  Silakan jalankan "start.bat" di folder utama untuk memulai web app.
 echo ======================================================================
 echo.
