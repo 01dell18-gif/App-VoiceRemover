@@ -1,7 +1,7 @@
 # FYJ Channel Voice - AI Vocal & Music Separator
 
 <p align="center">
-  <img src="public/img/favicon.svg" width="80" alt="FYJ Channel Voice Logo">
+  <img src="public/img/logo.png" width="120" height="120" style="border-radius: 50%;" alt="FYJ Channel Voice Logo">
 </p>
 
 <h3 align="center">🎵 Pisahkan Vokal dari Musik dengan Teknologi AI 🎵</h3>
