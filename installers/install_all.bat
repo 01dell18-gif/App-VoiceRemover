@@ -1,42 +1,63 @@
 @echo off
-title FYJ Channel Voice - Installer Aplikasi Pendukung
+title FYJ Channel Voice - Installer Lengkap Perangkat Baru
 color 0A
 
 echo ======================================================================
-echo       FYJ Channel Voice - Installer Aplikasi Pendukung
+echo       FYJ Channel Voice - Installer Lengkap Perangkat Baru
 echo ======================================================================
 echo.
-echo Installer ini akan memasang aplikasi yang dibutuhkan oleh 
-echo FYJ Channel Voice agar dapat berjalan di perangkat ini.
+echo Installer ini akan memasang semua aplikasi dan modul yang dibutuhkan 
+echo agar FYJ Channel Voice dapat memisahkan vokal, musik, bass, dan drum 
+echo secara 100 persen bersih - Zero Bleed - di perangkat ini.
 echo.
-echo 1. Node.js LTS (Wajib - Runtime Server dan Web App)
-echo 2. Python 3.11 (Opsional - Mesin AI Pemisah Audio)
+echo 1. Node.js LTS - Runtime Server dan Web App
+echo 2. Python 3.11 - Runtime Interpreter AI
+echo 3. Modul AI Demucs dan PyTorch CPU - Mesin Pemisah Kualitas Studio
 echo.
 echo ======================================================================
 echo.
 
+REM -------------------------------------------------------------------
 REM 1. Cek dan Pasang Node.js
-echo [1/2] Memeriksa Node.js...
+REM -------------------------------------------------------------------
+echo [1/3] Memeriksa Node.js...
+set "NODE_CMD="
 where node >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "tokens=*" %%v in ('node -v') do set NODE_VER=%%v
+if %ERRORLEVEL% EQU 0 set "NODE_CMD=node"
+
+if not defined NODE_CMD (
+    if exist "%ProgramFiles%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+    ) else if exist "%LocalAppData%\Programs\nodejs\node.exe" (
+        set "NODE_CMD=%LocalAppData%\Programs\nodejs\node.exe"
+    )
+)
+
+if defined NODE_CMD (
+    for /f "tokens=*" %%v in ('"%NODE_CMD%" -v') do set "NODE_VER=%%v"
     echo [OK] Node.js sudah terpasang: %NODE_VER%
 ) else (
-    echo [!] Node.js belum terpasang.
+    echo [!] Node.js belum terpasang di perangkat ini.
     if exist "%~dp0node-v20.18.0-x64.msi" (
-        echo [*] Menjalankan installer Node.js...
-        echo Silakan ikuti wizard instalasi di layar hingga selesai.
+        echo [*] Memulai pemasangan Node.js dari installer offline...
+        echo Harap ikuti wizard instalasi di layar hingga selesai.
         start /wait msiexec /i "%~dp0node-v20.18.0-x64.msi"
-        echo [OK] Instalasi Node.js selesai.
+        set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
+        if exist "%ProgramFiles%\nodejs\node.exe" (
+            set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+            echo [OK] Node.js berhasil dipasang!
+        )
     ) else (
-        echo [!] File node-v20.18.0-x64.msi tidak ditemukan di folder ini.
+        echo [!] File node-v20.18.0-x64.msi tidak ditemukan.
         start https://nodejs.org/en/download/
     )
 )
 echo.
 
-REM 2. Cek dan Pasang Python
-echo [2/2] Memeriksa Python...
+REM -------------------------------------------------------------------
+REM 2. Cek dan Pasang Python 3.11
+REM -------------------------------------------------------------------
+echo [2/3] Memeriksa Python 3.11...
 set "PY_CMD="
 if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
     set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
@@ -49,27 +70,53 @@ if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
 if not defined PY_CMD (
     echo [!] Python belum terpasang.
     if exist "%~dp0python-3.11.9-amd64.exe" (
-        echo [*] Menjalankan installer Python 3.11...
+        echo [*] Memasang Python 3.11 dari installer offline...
         start /wait "" "%~dp0python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 SimpleInstall=1
         if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
             set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
         )
-        echo [OK] Instalasi Python 3.11 selesai.
+        echo [OK] Python 3.11 berhasil dipasang!
     ) else (
-        echo [!] File python-3.11.9-amd64.exe tidak ditemukan di folder ini.
+        echo [!] File python-3.11.9-amd64.exe tidak ditemukan.
         start https://www.python.org/downloads/
     )
 )
 
 if defined PY_CMD (
-    for /f "tokens=*" %%p in ('"%PY_CMD%" --version') do set PY_VER=%%p
-    echo [OK] Python terpasang: %PY_VER%
+    for /f "tokens=*" %%p in ('"%PY_CMD%" --version') do set "PY_VER=%%p"
+    echo [OK] Python siap: %PY_VER%
+)
+echo.
+
+REM -------------------------------------------------------------------
+REM 3. Cek dan Pasang Paket AI Demucs dan PyTorch
+REM -------------------------------------------------------------------
+echo [3/3] Memeriksa Paket AI Demucs...
+set "DEMUCS_READY=0"
+if defined PY_CMD (
+    "%PY_CMD%" -m demucs --help >nul 2>&1
+    if %ERRORLEVEL% EQU 0 set "DEMUCS_READY=1"
+)
+
+if "%DEMUCS_READY%"=="1" (
+    echo [OK] Modul AI Demucs - Meta Research - sudah aktif dan siap digunakan!
+) else (
+    echo [!] Modul AI Demucs belum terpasang.
+    echo [*] Memasang modul AI Demucs, PyTorch CPU, NumPy, dan LameEnc...
+    echo Harap tunggu beberapa saat...
+    if exist "%~dp0setup_ai_packages.bat" (
+        call "%~dp0setup_ai_packages.bat"
+    ) else (
+        "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+        "%PY_CMD%" -m pip install numpy demucs soundfile lameenc
+    )
 )
 echo.
 
 echo ======================================================================
-echo  [OK] Semua pemeriksaan dan instalasi selesai!
-echo  Silakan jalankan "start.bat" di folder utama untuk memulai web app.
+echo  [OK] Semua instalasi dan konfigurasi berhasil diselesaikan!
+echo  Untuk memulai aplikasi web, silakan jalankan start.bat
+echo  yang berada di folder utama proyek.
 echo ======================================================================
 echo.
 pause

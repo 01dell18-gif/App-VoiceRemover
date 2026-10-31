@@ -95,9 +95,9 @@ if not exist "%~dp0node_modules\" (
 echo.
 
 REM -------------------------------------------------------------------
-REM 3. Pemeriksaan Mesin Pemisah Audio (FFmpeg dan Python)
+REM 3. Pemeriksaan Mesin Pemisah Audio (FFmpeg, Python, Demucs AI)
 REM -------------------------------------------------------------------
-echo [3/3] Memeriksa Mesin Pemisah Audio...
+echo [3/3] Memeriksa Mesin Pemisah Audio (FFmpeg dan Demucs AI)...
 
 if exist "%~dp0node_modules\ffmpeg-static\ffmpeg.exe" (
     echo [OK] Mesin Audio FFmpeg DSP siap - Internal bawaan aplikasi.
@@ -114,19 +114,48 @@ if exist "%~dp0node_modules\ffmpeg-static\ffmpeg.exe" (
 set "PY_CMD="
 if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
     set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+) else if exist "%ProgramFiles%\Python311\python.exe" (
+    set "PY_CMD=%ProgramFiles%\Python311\python.exe"
 ) else (
     where python >nul 2>&1 && set "PY_CMD=python"
 )
 
+REM Jika Python belum ada, pasang otomatis dari folder installers
+if not defined PY_CMD (
+    if exist "%~dp0installers\python-3.11.9-amd64.exe" (
+        echo.
+        echo [*] Python belum terdeteksi. Memasang Python 3.11 dari folder installers...
+        start /wait "" "%~dp0installers\python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 SimpleInstall=1
+        if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
+            set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+            echo [OK] Python 3.11 berhasil dipasang!
+        )
+    )
+)
+
+REM Jika Python tersedia, periksa apakah paket AI Demucs sudah terpasang
 if defined PY_CMD (
     "%PY_CMD%" -m demucs --help >nul 2>&1
     if %ERRORLEVEL% EQU 0 (
-        echo [OK] Mesin AI Demucs SIAP - Kualitas Studio.
+        echo [OK] Mesin AI Demucs SIAP - Kualitas Studio - Zero Vocal Bleed.
     ) else (
-        echo [INFO] Python terdeteksi. Mode FFmpeg DSP aktif - Pemisahan kilat 10 detik.
+        echo.
+        echo [*] Modul AI Demucs belum lengkap. Memulai pemasangan otomatis paket AI...
+        if exist "%~dp0installers\setup_ai_packages.bat" (
+            call "%~dp0installers\setup_ai_packages.bat"
+        ) else (
+            "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+            "%PY_CMD%" -m pip install numpy demucs soundfile lameenc
+        )
+        "%PY_CMD%" -m demucs --help >nul 2>&1
+        if %ERRORLEVEL% EQU 0 (
+            echo [OK] Mesin AI Demucs SIAP - Kualitas Studio - Zero Vocal Bleed.
+        ) else (
+            echo [INFO] Menggunakan mode fallback FFmpeg DSP.
+        )
     )
 ) else (
-    echo [INFO] Mode FFmpeg DSP aktif - Pemisahan kilat 10 detik.
+    echo [INFO] Python tidak tersedia. Mode FFmpeg DSP aktif.
 )
 echo.
 

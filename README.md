@@ -1,22 +1,12 @@
 # FYJ Channel Voice - AI & DSP Vocal & Music Separator
 
-<p align="center">
-  <img src="public/img/logo.png" width="120" height="120" style="border-radius: 50%;" alt="FYJ Channel Voice Logo">
-</p>
+![FYJ Channel Voice Logo](public/img/logo.png)
 
-<h3 align="center">🎵 Pisahkan Vokal dari Musik Lagu Secara Cepat & Akurat 🎵</h3>
+### 🎵 Pisahkan Vokal dari Musik Lagu Secara Cepat & Akurat 🎵
 
-<p align="center">
-  Aplikasi web modern untuk memisahkan suara vokal dari instrumen / musik lagu secara instan. Dilengkapi dengan kontrol pemutar lagu mandiri, mixer audio interaktif, pemutar demo lagu bawaan, dan fitur ekspor ZIP 1-klik.
-</p>
+Aplikasi web modern untuk memisahkan suara vokal dari instrumen / musik lagu secara instan. Dilengkapi dengan kontrol pemutar lagu mandiri, mixer audio interaktif, pemutar demo lagu bawaan, dan fitur ekspor ZIP 1-klik.
 
-<p align="center">
-  <a href="#-fitur-utama">Fitur Utama</a> •
-  <a href="#-cara-menjalankan-aplikasi">Cara Menjalankan</a> •
-  <a href="#-kontrol-pemutar--mixer">Kontrol Pemutar & Mixer</a> •
-  <a href="#-paket-installer-offline-perangkat-lain">Installer Offline</a> •
-  <a href="#-struktur-proyek">Struktur Proyek</a>
-</p>
+[Fitur Utama](#-fitur-utama) • [Cara Menjalankan](#-cara-menjalankan-aplikasi) • [Kontrol Pemutar & Mixer](#-kontrol-pemutar--mixer) • [Installer Offline](#-paket-installer-offline-perangkat-lain) • [Struktur Proyek](#-struktur-proyek)
 
 ---
 
@@ -63,6 +53,7 @@
 Aplikasi berjalan pada port default **`3032`** (`http://localhost:3032`).
 
 ### 1. Cara Cepat (Windows 1-Click Run)
+
 Cukup klik ganda (double-click) file **`start.bat`** di folder utama:
 
 1. **Pemeriksaan Otomatis**: Script akan memeriksa apakah program yang diperlukan (Node.js & dependensi) sudah ada di perangkat.
@@ -85,8 +76,9 @@ node server.js
 ```
 
 Setelah server aktif, buka peramban web di alamat:
-* **Komputer Lokal**: [http://localhost:3032](http://localhost:3032)
-* **Akses dari HP / Laptop Lain**: `http://<IP-Lokal-Anda>:3032`
+
+- **Komputer Lokal**: [http://localhost:3032](http://localhost:3032)
+- **Akses dari HP / Laptop Lain**: `http://<IP-Lokal-Anda>:3032`
 
 ---
 
@@ -95,10 +87,11 @@ Setelah server aktif, buka peramban web di alamat:
 Di dalam folder **[`installers/`](installers/)** telah disediakan file instalasi resmi agar aplikasi dapat langsung dipasang dan dijalankan di komputer mana saja tanpa koneksi internet:
 
 | File | Keterangan | Status |
-|------|------------|--------|
+| --- | --- | --- |
 | **`node-v20.18.0-x64.msi`** | Runtime Node.js LTS 64-bit untuk menjalankan server | **Wajib** |
 | **`python-3.11.9-amd64.exe`** | Python 3.11 resmi untuk mendukung modul AI Demucs | Opsional |
 | **`install_all.bat`** | Script 1-klik untuk memasang Node.js & Python | Utilitas |
+| **`setup_ai_packages.bat`** | Script otomatis memasang paket AI Demucs & PyTorch CPU | Utilitas AI |
 | **`README_INSTALLER.txt`** | Panduan petunjuk instalasi di perangkat lain | Dokumentasi |
 
 > **Catatan**: Aplikasi sudah menyertakan paket internal `ffmpeg-static` bawaan sehingga pemisahan audio langsung berfungsi tanpa konfigurasi rumit.
@@ -107,12 +100,13 @@ Di dalam folder **[`installers/`](installers/)** telah disediakan file instalasi
 
 ## 📁 Struktur Proyek
 
-```
+```text
 App-VoiceRemover/
 ├── installers/                   # Paket installer offline untuk komputer lain
 │   ├── node-v20.18.0-x64.msi     # Installer Node.js LTS
 │   ├── python-3.11.9-amd64.exe   # Installer Python 3.11
-│   ├── install_all.bat           # Script pasang otomatis
+│   ├── install_all.bat           # Script pasang otomatis Node.js & Python
+│   ├── setup_ai_packages.bat     # Script pasang modul AI Demucs
 │   └── README_INSTALLER.txt      # Petunjuk installer
 ├── public/                       # Frontend Web App
 │   ├── audio/
@@ -139,7 +133,7 @@ App-VoiceRemover/
 ## 🛠️ Spesifikasi Teknologi
 
 | Komponen | Teknologi |
-|----------|-----------|
+| --- | --- |
 | **Runtime & Server** | Node.js (v18+) + Express |
 | **Realtime Progress** | Socket.IO |
 | **Mesin AI Utama** | Demucs HTDemucs (Meta Research Neural Network - Zero Vocal Bleed) |
@@ -172,8 +166,9 @@ App-VoiceRemover/
 ## 🌐 Sinkronisasi Repository GitHub
 
 Aplikasi ini tersinkronisasi penuh dengan repositori GitHub:
-* **URL Repository**: [https://github.com/01dell18-gif/App-VoiceRemover.git](https://github.com/01dell18-gif/App-VoiceRemover.git)
-* **Branch**: `main`
+
+- **URL Repository**: [https://github.com/01dell18-gif/App-VoiceRemover.git](https://github.com/01dell18-gif/App-VoiceRemover.git)
+- **Branch**: `main`
 
 ---
 
