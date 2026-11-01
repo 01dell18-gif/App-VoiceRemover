@@ -559,7 +559,7 @@ app.get('/api/download-all/:jobId', (req, res) => {
   });
 });
 
-// Stream audio for preview
+// Stream audio for preview dengan optimasi fast-start dan byte-range seeking
 app.get('/api/stream/:jobId/:track', (req, res) => {
   const job = getOrRecoverJob(req.params.jobId);
   if (!job) {
@@ -580,35 +580,26 @@ app.get('/api/stream/:jobId/:track', (req, res) => {
     trackPath = trackInfo.path;
   }
 
-  if (!fs.existsSync(trackPath)) {
+  if (!trackPath || !fs.existsSync(trackPath)) {
     return res.status(404).json({ error: 'File tidak ditemukan' });
   }
 
-  const stat = fs.statSync(trackPath);
-  const range = req.headers.range;
+  const resolvedPath = path.resolve(trackPath);
 
-  if (range) {
-    const parts = range.replace(/bytes=/, "").split("-");
-    const start = parseInt(parts[0], 10);
-    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
-    const chunksize = (end - start) + 1;
-    const file = fs.createReadStream(trackPath, { start, end });
-    const head = {
-      'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-      'Accept-Ranges': 'bytes',
-      'Content-Length': chunksize,
-      'Content-Type': 'audio/mpeg',
-    };
-    res.writeHead(206, head);
-    file.pipe(res);
-  } else {
-    const head = {
-      'Content-Length': stat.size,
-      'Content-Type': 'audio/mpeg',
-    };
-    res.writeHead(200, head);
-    fs.createReadStream(trackPath).pipe(res);
-  }
+  // Header optimasi streaming instan untuk peramban web
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+
+  res.sendFile(resolvedPath, {
+    acceptRanges: true,
+    cacheControl: true,
+    maxAge: '1h',
+    dotfiles: 'deny'
+  }, (err) => {
+    if (err && !res.headersSent && err.code !== 'ECONNABORTED' && err.code !== 'ECANCELED') {
+      console.warn(`Gagal streaming track ${track}:`, err.message);
+    }
+  });
 });
 
 // === AUDIO PROCESSING ===

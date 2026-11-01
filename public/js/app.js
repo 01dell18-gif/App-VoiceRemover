@@ -410,8 +410,17 @@ document.addEventListener('DOMContentLoaded', () => {
     els.tracksContainer.innerHTML = '';
     state.tracks = {};
     state.isPlaying = false;
+    state.currentPlaying = null;
     state.soloTrack = null;
     state.playbackMode = 'instrumental';
+
+    // Reset posisi waktu dan scrubber ke 00:00 agar tidak mewarisi waktu lama
+    state.currentTime = 0;
+    state.duration = 0;
+    if (els.masterScrubber) els.masterScrubber.value = 0;
+    if (els.currentTime) els.currentTime.textContent = '00:00';
+    if (els.totalDuration) els.totalDuration.textContent = '00:00';
+
     updatePillsUI('instrumental');
     updateMasterPlayButton(false);
 
@@ -455,6 +464,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.primaryTrack = state.tracks[trackKeys[0]];
       setupAudioSync();
     }
+
+    // Preload otomatis track utama (instrumental & vokal) agar saat tombol Putar ditekan langsung berbunyi seketika
+    if (state.tracks['instrumental']) state.tracks['instrumental'].audio.preload = 'auto';
+    if (state.tracks['vocals']) state.tracks['vocals'].audio.preload = 'auto';
 
     showToast('Pemisahan selesai! Track siap didownload & diputar.', 'success');
   }
@@ -508,7 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
           Download
         </a>
       </div>
-      <audio id="audio-${track.name}" preload="auto" src="/api/stream/${state.jobId}/${track.name}"></audio>
+      <audio id="audio-${track.name}" preload="metadata" src="/api/stream/${state.jobId}/${track.name}"></audio>
     `;
 
     const audio = card.querySelector('audio');
@@ -533,6 +546,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     state.tracks[track.name] = trackObj;
+
+    // Fast-warmup saat kursor mendekati kartu track untuk memastikan buffer audio siap seketika
+    card.addEventListener('mouseenter', () => {
+      if (trackObj.audio.preload !== 'auto') {
+        trackObj.audio.preload = 'auto';
+      }
+    }, { once: true });
+    card.addEventListener('touchstart', () => {
+      if (trackObj.audio.preload !== 'auto') {
+        trackObj.audio.preload = 'auto';
+      }
+    }, { once: true, passive: true });
 
     // Volume Slider Event
     volumeSlider.addEventListener('input', (e) => {
@@ -630,6 +655,9 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePillsUI(mode);
     updateMasterPlayButton(state.isPlaying);
 
+    // Buffer track target secara instan di latar belakang agar saat tombol Putar ditekan langsung bersuara
+    primeAudioForMode(mode);
+
     // Jika sedang berputar, langsung alihkan ke mode yang dipilih secara mulus
     if (state.isPlaying) {
       if (mode === 'mix') {
@@ -641,6 +669,23 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (state.tracks[mode]) {
         playSingleTrack(mode);
       }
+    }
+  }
+
+  // Preload track target secara proaktif
+  function primeAudioForMode(mode) {
+    if (mode === 'vocals' && state.tracks['vocals']) {
+      state.tracks['vocals'].audio.preload = 'auto';
+    } else if (mode === 'instrumental' && state.tracks['instrumental']) {
+      state.tracks['instrumental'].audio.preload = 'auto';
+    } else if (mode === 'original' && state.tracks['original']) {
+      state.tracks['original'].audio.preload = 'auto';
+    } else if (mode === 'mix') {
+      Object.values(state.tracks).forEach(t => {
+        if (t.name !== 'original') t.audio.preload = 'auto';
+      });
+    } else if (state.tracks[mode]) {
+      state.tracks[mode].audio.preload = 'auto';
     }
   }
 
@@ -676,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.playbackMode = 'instrumental';
     updatePillsUI('instrumental');
 
-    // Jika track instrumental gabungan tersedia, langsung putar track tersebut secara solo
+    // Jika track instrumental gabungan tersedia, langsung putar track tersebut secara solo instan
     if (state.tracks['instrumental']) {
       playSingleTrack('instrumental');
       return;
@@ -684,36 +729,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fallback: Jika tidak ada track gabungan instrumental, putar semua stem non-vokal
     if (state.tracks['original']) {
-      state.tracks['original'].audio.pause();
+      if (!state.tracks['original'].audio.paused) state.tracks['original'].audio.pause();
       state.tracks['original'].audio.volume = 0;
       state.tracks['original'].card.classList.remove('playing');
       updateTrackButtonIcon(state.tracks['original'], false);
     }
     if (state.tracks['vocals']) {
-      state.tracks['vocals'].audio.pause();
+      if (!state.tracks['vocals'].audio.paused) state.tracks['vocals'].audio.pause();
       state.tracks['vocals'].audio.volume = 0;
       state.tracks['vocals'].card.classList.remove('playing');
       updateTrackButtonIcon(state.tracks['vocals'], false);
     }
 
-    const syncTime = state.currentTime || (state.primaryTrack ? state.primaryTrack.audio.currentTime : 0);
-    const promises = [];
+    const syncTime = state.currentTime || 0;
+
+    // Respon antarmuka seketika tanpa jeda
+    state.isPlaying = true;
+    state.currentPlaying = 'instrumental_mix';
+    updateMasterPlayButton(true);
 
     Object.values(state.tracks).forEach(t => {
-      if (t.name !== 'vocals' && t.name !== 'original') {
-        t.audio.currentTime = syncTime;
-        t.audio.playbackRate = state.tempo;
+      if (t.name !== 'vocals' && t.name !== 'original' && t.name !== 'instrumental') {
+        if (Math.abs(t.audio.currentTime - syncTime) > 0.3) {
+          t.audio.currentTime = syncTime;
+        }
+        t.audio.playbackRate = state.tempo || 1.0;
         applyVolume(t);
         t.card.classList.add('playing');
         updateTrackButtonIcon(t, true);
-        promises.push(t.audio.play().catch(() => {}));
+        const p = t.audio.play();
+        if (p !== undefined) p.catch(() => {});
       }
-    });
-
-    Promise.all(promises).then(() => {
-      state.isPlaying = true;
-      state.currentPlaying = 'instrumental_mix';
-      updateMasterPlayButton(true);
     });
   }
 
@@ -723,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Matikan track original agar tidak menimpa hasil pemisahan
     if (state.tracks['original']) {
-      state.tracks['original'].audio.pause();
+      if (!state.tracks['original'].audio.paused) state.tracks['original'].audio.pause();
       state.tracks['original'].audio.volume = 0;
       state.tracks['original'].card.classList.remove('playing');
       updateTrackButtonIcon(state.tracks['original'], false);
@@ -732,8 +778,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cek apakah ada stem individual (drums, bass, dll.)
     const hasIndividualStems = Boolean(state.tracks['drums'] || state.tracks['bass'] || state.tracks['other']);
 
-    const syncTime = state.currentTime || (state.primaryTrack ? state.primaryTrack.audio.currentTime : 0);
-    const promises = [];
+    const syncTime = state.currentTime || 0;
+
+    // Respon antarmuka seketika tanpa jeda
+    state.isPlaying = true;
+    state.currentPlaying = 'master';
+    updateMasterPlayButton(true);
 
     // Putar hanya stem hasil pemisahan (tanpa duplikasi instrumental gabungan)
     Object.values(state.tracks).forEach(t => {
@@ -741,25 +791,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Jika ada stem individual, jangan putar gabungan instrumental agar tidak tumpang tindih
       if (hasIndividualStems && t.name === 'instrumental') {
-        t.audio.pause();
+        if (!t.audio.paused) t.audio.pause();
         t.audio.volume = 0;
         t.card.classList.remove('playing');
         updateTrackButtonIcon(t, false);
         return;
       }
 
-      t.audio.currentTime = syncTime;
-      t.audio.playbackRate = state.tempo;
+      if (Math.abs(t.audio.currentTime - syncTime) > 0.3) {
+        t.audio.currentTime = syncTime;
+      }
+      t.audio.playbackRate = state.tempo || 1.0;
       applyVolume(t);
       t.card.classList.add('playing');
       updateTrackButtonIcon(t, true);
-      promises.push(t.audio.play().catch(() => {}));
-    });
-
-    Promise.all(promises).then(() => {
-      state.isPlaying = true;
-      state.currentPlaying = 'master';
-      updateMasterPlayButton(true);
+      const p = t.audio.play();
+      if (p !== undefined) p.catch(() => {});
     });
   }
 
@@ -778,32 +825,48 @@ document.addEventListener('DOMContentLoaded', () => {
     const track = state.tracks[trackName];
     if (!track) return;
 
-    // Hentikan dan bisukan semua track lainnya secara absolut (Zero Bleed)
+    // 1. Hentikan dan bisukan semua track lainnya secara absolut (Zero Bleed)
     Object.values(state.tracks).forEach(t => {
       if (t.name !== trackName) {
-        t.audio.pause();
+        if (!t.audio.paused) t.audio.pause();
         t.audio.volume = 0;
         t.card.classList.remove('playing');
         updateTrackButtonIcon(t, false);
       }
     });
 
-    // Update mode pill aktif
+    // 2. Berikan respon visual & status aktif SEKETIKA (0 milidetik latency)
     state.playbackMode = trackName;
     updatePillsUI(trackName);
+    state.isPlaying = true;
+    state.currentPlaying = trackName;
+    track.card.classList.add('playing');
+    updateTrackButtonIcon(track, true);
+    updateMasterPlayButton(true);
 
-    const syncTime = state.currentTime || (track.audio.currentTime || 0);
-    track.audio.currentTime = syncTime;
-    track.audio.playbackRate = state.tempo;
+    // 3. Sinkronkan waktu HANYA jika terjadi pergeseran nyata > 0.3 detik
+    // (Mencegah peramban membuang buffer audio yang sudah ada)
+    const syncTime = state.currentTime || 0;
+    if (Math.abs(track.audio.currentTime - syncTime) > 0.3) {
+      track.audio.currentTime = syncTime;
+    }
+
+    track.audio.playbackRate = state.tempo || 1.0;
     track.audio.volume = track.isMuted ? 0 : track.volume;
 
-    track.audio.play().then(() => {
-      state.isPlaying = true;
-      state.currentPlaying = trackName;
-      track.card.classList.add('playing');
-      updateTrackButtonIcon(track, true);
-      updateMasterPlayButton(true);
-    }).catch(err => console.error(err));
+    // 4. Langsung putar audio seketika
+    const playPromise = track.audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        if (err.name !== 'AbortError') {
+          console.warn('Playback notice:', err.message);
+          // Jika peramban memblokir autoplay, sesuaikan ikon UI
+          if (track.audio.paused && state.currentPlaying === trackName) {
+            pauseSingleTrack(trackName);
+          }
+        }
+      });
+    }
   }
 
   function pauseSingleTrack(trackName) {
