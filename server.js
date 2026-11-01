@@ -233,6 +233,11 @@ app.post('/api/upload', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ error: 'Tidak ada file yang diunggah' });
     }
 
+    // Jika pengguna meminta pemisahan lagi dengan membawa previousJobId, bersihkan file lama segera
+    if (req.body.previousJobId) {
+      cleanupJobFiles(req.body.previousJobId);
+    }
+
     const jobId = uuidv4();
     const separationType = req.body.separationType || 'vocals_music'; // vocals_music, 4stems, 5stems
     const outputFormat = req.body.outputFormat || 'mp3';
@@ -265,6 +270,81 @@ app.post('/api/upload', upload.single('audio'), async (req, res) => {
     console.error('Upload error:', error);
     res.status(500).json({ error: error.message || 'Terjadi kesalahan saat mengunggah file' });
   }
+});
+
+// Helper untuk menghapus data musik asli dan seluruh hasil pemisahan agar penyimpanan tidak penuh
+function cleanupJobFiles(jobId) {
+  if (!jobId || typeof jobId !== 'string') return false;
+  console.log(`🧹 Membersihkan data musik & hasil pemisahan untuk Job: ${jobId}`);
+
+  let deleted = false;
+
+  // 1. Hapus file audio upload asli jika ada di memori
+  const job = activeJobs.get(jobId);
+  if (job && job.filepath && fs.existsSync(job.filepath)) {
+    try {
+      fs.unlinkSync(job.filepath);
+      deleted = true;
+      console.log(`   🗑️ File upload asli dihapus: ${job.filepath}`);
+    } catch (e) {
+      console.warn(`   ⚠️ Gagal menghapus ${job.filepath}:`, e.message);
+    }
+  }
+
+  // 2. Hapus folder output hasil pemisahan (MP3, stems, instrumental karaoke, zip)
+  const outputDir = path.join(__dirname, 'outputs', jobId);
+  if (fs.existsSync(outputDir)) {
+    try {
+      fs.rmSync(outputDir, { recursive: true, force: true });
+      deleted = true;
+      console.log(`   🗑️ Folder output hasil pemisahan dihapus: ${outputDir}`);
+    } catch (e) {
+      console.warn(`   ⚠️ Gagal menghapus folder output ${outputDir}:`, e.message);
+    }
+  }
+
+  // 3. Scan folder uploads untuk file yang berawalan UUID job ini
+  const uploadsDir = path.join(__dirname, 'uploads');
+  if (fs.existsSync(uploadsDir)) {
+    try {
+      fs.readdirSync(uploadsDir).forEach(f => {
+        if (f !== '.gitkeep' && f.includes(jobId)) {
+          const p = path.join(uploadsDir, f);
+          try {
+            fs.unlinkSync(p);
+            deleted = true;
+            console.log(`   🗑️ File upload dicocokkan & dihapus: ${p}`);
+          } catch (err) {}
+        }
+      });
+    } catch (e) {}
+  }
+
+  // 4. Hapus dari daftar activeJobs
+  activeJobs.delete(jobId);
+
+  return deleted;
+}
+
+// Endpoint manual untuk membersihkan data pemisahan (misalnya saat klik 'Pisahkan Lagu Lain')
+app.post('/api/cleanup/:jobId', (req, res) => {
+  const jobId = req.params.jobId;
+  const success = cleanupJobFiles(jobId);
+  res.json({
+    status: 'ok',
+    message: `Data musik dan hasil pemisahan untuk job ${jobId} berhasil dihapus dari penyimpanan.`,
+    cleaned: success
+  });
+});
+
+app.delete('/api/job/:jobId', (req, res) => {
+  const jobId = req.params.jobId;
+  const success = cleanupJobFiles(jobId);
+  res.json({
+    status: 'ok',
+    message: `Data musik dan hasil pemisahan untuk job ${jobId} berhasil dihapus.`,
+    cleaned: success
+  });
 });
 
 // Helper untuk mengambil job aktif atau merekonstruksi dari disk jika server di-restart
@@ -976,10 +1056,10 @@ io.on('connection', (socket) => {
   });
 });
 
-// Cleanup old files (runs every hour)
+// Cleanup berkala untuk file yatim / tidak terhapus (dijalankan setiap 15 menit, batas 30 menit)
 setInterval(() => {
-  const maxAge = 2 * 60 * 60 * 1000; // 2 hours
-  ['uploads', 'outputs'].forEach(dir => {
+  const maxAge = 30 * 60 * 1000; // 30 menit
+  ['uploads', 'outputs', 'temp'].forEach(dir => {
     const dirPath = path.join(__dirname, dir);
     if (!fs.existsSync(dirPath)) return;
     
@@ -999,7 +1079,7 @@ setInterval(() => {
       } catch (e) { /* ignore */ }
     });
   });
-}, 60 * 60 * 1000);
+}, 15 * 60 * 1000);
 
 // Initialize and start server
 async function init() {

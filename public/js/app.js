@@ -280,6 +280,9 @@ document.addEventListener('DOMContentLoaded', () => {
       formData.append('audio', state.selectedFile);
       formData.append('separationType', state.separationType);
       formData.append('outputFormat', 'mp3');
+      if (state.jobId) {
+        formData.append('previousJobId', state.jobId);
+      }
 
       const response = await uploadWithProgress(formData);
       
@@ -905,9 +908,16 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = `/api/download-zip/${state.jobId}`;
   }
 
-  // === Reset All ===
+  // === Reset All (Siap untuk pemisahan lagu berikutnya) ===
   function resetAll() {
     stopAllTracks();
+
+    // Hapus data lagu & hasil pemisahan sebelumnya dari server agar penyimpanan tidak penuh
+    const oldJobId = state.jobId;
+    if (oldJobId) {
+      fetch(`/api/cleanup/${oldJobId}`, { method: 'POST' }).catch(() => {});
+    }
+
     state.selectedFile = null;
     state.jobId = null;
     state.isPlaying = false;
@@ -925,6 +935,17 @@ document.addEventListener('DOMContentLoaded', () => {
     updateProgress(0, '');
     els.uploadSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+
+  // Bersihkan data otomatis saat tab/peramban ditutup
+  window.addEventListener('beforeunload', () => {
+    if (state.jobId) {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(`/api/cleanup/${state.jobId}`);
+      } else {
+        fetch(`/api/cleanup/${state.jobId}`, { method: 'POST', keepalive: true }).catch(() => {});
+      }
+    }
+  });
 
   // === System Health ===
   async function checkSystemHealth() {
