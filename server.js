@@ -6,8 +6,17 @@ const path = require('path');
 const fs = require('fs');
 const { exec, spawn } = require('child_process');
 const http = require('http');
+const https = require('https');
+const os = require('os');
 const { Server } = require('socket.io');
 const archiver = require('archiver');
+
+// Muat konfigurasi environment dari file .env jika tersedia
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv opsional jika belum terpasang
+}
 
 // Try to load ffmpeg-static
 let ffmpegBin = 'ffmpeg';
@@ -24,18 +33,70 @@ try {
 }
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' },
-  transports: ['polling', 'websocket']
-});
 
+// Konfigurasi Port & Domain
 const PORT = process.env.PORT || 3032;
 const HOST = process.env.HOST || '0.0.0.0';
+const DOMAIN = process.env.DOMAIN || '';
+const APP_URL = process.env.APP_URL || (DOMAIN ? `https://${DOMAIN}` : '');
+const SSL_ENABLED = process.env.SSL_ENABLED === 'true';
 
-// Middleware
-app.set('trust proxy', 1);
-app.use(cors());
+// Inisialisasi Server (Mendukung HTTPS Langsung atau HTTP / Reverse Proxy)
+let server;
+let isHttps = false;
+
+if (SSL_ENABLED && process.env.SSL_CERT_PATH && process.env.SSL_KEY_PATH) {
+  try {
+    const certPath = path.resolve(process.env.SSL_CERT_PATH);
+    const keyPath = path.resolve(process.env.SSL_KEY_PATH);
+    if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+      const sslOptions = {
+        cert: fs.readFileSync(certPath),
+        key: fs.readFileSync(keyPath)
+      };
+      if (process.env.SSL_CA_PATH && fs.existsSync(path.resolve(process.env.SSL_CA_PATH))) {
+        sslOptions.ca = fs.readFileSync(path.resolve(process.env.SSL_CA_PATH));
+      }
+      server = https.createServer(sslOptions, app);
+      isHttps = true;
+      console.log('🔒 Sertifikat SSL aktif - Server berjalan dalam mode HTTPS');
+    } else {
+      console.warn('⚠️ File SSL tidak ditemukan pada path yang ditentukan. Menggunakan HTTP.');
+      server = http.createServer(app);
+    }
+  } catch (err) {
+    console.error('⚠️ Gagal memuat sertifikat SSL:', err.message);
+    server = http.createServer(app);
+  }
+} else {
+  server = http.createServer(app);
+}
+
+// Inisialisasi Socket.IO dengan dukungan Domain & Reverse Proxy
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST']
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000
+});
+
+// Middleware Proxy (Dukungan Nginx, Cloudflare Tunnel, Caddy, Apache, AWS, dll.)
+const trustProxyVal = process.env.TRUST_PROXY || '1';
+app.set('trust proxy', trustProxyVal === 'true' ? true : (trustProxyVal === 'false' ? false : Number(trustProxyVal) || 1));
+
+// Konfigurasi CORS Domain
+const corsOrigin = process.env.CORS_ORIGIN || '*';
+app.use(cors({
+  origin: corsOrigin === '*' ? '*' : corsOrigin.split(',').map(s => s.trim()),
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -222,7 +283,11 @@ app.get('/api/health', (req, res) => {
     demucs: demucsAvailable,
     uvr: uvrAvailable,
     ffmpeg: ffmpegAvailable,
-    engine: uvrAvailable ? 'UVR MDX-Net AI (Zero Bleed)' : (demucsAvailable ? 'Demucs AI' : 'FFmpeg DSP Engine')
+    engine: uvrAvailable ? 'UVR MDX-Net AI (Zero Bleed)' : (demucsAvailable ? 'Demucs AI' : 'FFmpeg DSP Engine'),
+    domain: DOMAIN || null,
+    appUrl: APP_URL || null,
+    https: isHttps,
+    port: PORT
   });
 });
 
@@ -1081,6 +1146,21 @@ setInterval(() => {
   });
 }, 15 * 60 * 1000);
 
+// Helper untuk mendeteksi IP Jaringan Lokal (Wi-Fi / LAN)
+function getLocalNetworkIp() {
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+  } catch (e) {}
+  return '127.0.0.1';
+}
+
 // Initialize and start server
 async function init() {
   console.log('\n🎵 ═══════════════════════════════════════');
@@ -1096,8 +1176,36 @@ async function init() {
   console.log(`UVR AI:  ${uvrAvailable ? '✅ UVR MDX-Net Siap (Zero Bleed Studio Quality)' : '❌ Not installed'}`);
   console.log(`Demucs:  ${demucsAvailable ? '✅ Demucs AI (htdemucs_ft / htdemucs_6s) Siap!' : 'ℹ️ DSP Mode Aktif (Gunakan pip install demucs untuk kualitas studio)'}`);
   
+  // Opsional: Jalankan pengalihan HTTP ke HTTPS jika server berjalan di port 443 dengan SSL langsung
+  if (isHttps && (PORT == 443 || process.env.REDIRECT_HTTP === 'true')) {
+    const httpPort = process.env.HTTP_PORT || 80;
+    const redirectApp = express();
+    redirectApp.use((req, res) => {
+      const targetHost = DOMAIN || (req.headers.host ? req.headers.host.split(':')[0] : 'localhost');
+      res.redirect(301, `https://${targetHost}${req.url}`);
+    });
+    http.createServer(redirectApp).listen(httpPort, () => {
+      console.log(`🔒 Pengalihan otomatis HTTP (port ${httpPort}) ke HTTPS (port 443) aktif`);
+    });
+  }
+
   server.listen(PORT, HOST, () => {
-    console.log(`\n🚀 Server berjalan di http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+    const protocol = isHttps ? 'https' : 'http';
+    const localIp = getLocalNetworkIp();
+    const portSuffix = ((protocol === 'http' && PORT == 80) || (protocol === 'https' && PORT == 443)) ? '' : `:${PORT}`;
+    
+    console.log('\n🚀 ═══════════════════════════════════════');
+    console.log('   FYJ Channel Voice - Status Server Aktif');
+    console.log('═══════════════════════════════════════════');
+    console.log(`🏠 Akses Komputer Lokal : ${protocol}://localhost${portSuffix}`);
+    console.log(`📱 Akses Jaringan Lokal : ${protocol}://${localIp}${portSuffix}`);
+    
+    if (APP_URL || DOMAIN) {
+      const domainUrl = APP_URL || `${protocol}://${DOMAIN}${portSuffix}`;
+      console.log(`🌐 Akses Domain Publik  : ${domainUrl} (Aktif)`);
+    } else {
+      console.log(`🌐 Akses Domain Publik  : Belum diset (Bisa diatur di file .env / domain_setup.bat)`);
+    }
     console.log('═══════════════════════════════════════════\n');
   });
 }

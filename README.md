@@ -84,9 +84,14 @@ Setelah server aktif, buka peramban web di alamat:
 
 ### 3. Deploy ke Domain Web & Cloud Hosting (VPS / Docker / PaaS)
 
-Aplikasi ini sudah **100% Production Ready** untuk diunggah ke domain web, VPS Linux, maupun platform cloud hosting:
+Aplikasi ini sudah **100% Domain & Production Ready**. Anda dapat menghubungkannya dengan domain sendiri (contoh: `suara.domainanda.com`).
 
-#### A. Menggunakan Docker / Docker Compose (Rekomendasi VPS Linux & Domain Web)
+> 📖 **Panduan Lengkap Domain**: Silakan baca panduan lengkap step-by-step di file **[`PANDUAN_DOMAIN.md`](PANDUAN_DOMAIN.md)** atau jalankan script otomatis **[`domain_setup.bat`](domain_setup.bat)** di Windows.
+
+#### A. Konfigurasi Cepat Domain Windows (`domain_setup.bat`)
+Cukup klik ganda file `domain_setup.bat` di Windows untuk memasukkan domain Anda, mengatur port, atau menghubungkan dengan Cloudflare Tunnel (gratis tanpa IP publik & tanpa port-forwarding).
+
+#### B. Menggunakan Docker / Docker Compose (Rekomendasi VPS Linux & Domain Web)
 
 Jika Anda memiliki server VPS (Ubuntu/Debian) dengan domain terpasang:
 
@@ -191,6 +196,10 @@ App-VoiceRemover/
 │   ├── install_all.bat           # Script pasang otomatis Node.js & Python
 │   ├── setup_ai_packages.bat     # Script pasang modul AI Demucs
 │   └── README_INSTALLER.txt      # Petunjuk installer
+├── nginx/                        # Konfigurasi reverse proxy domain
+│   └── fyj-voice.conf            # Template konfigurasi Nginx + SSL
+├── tunnel/                       # Konfigurasi Cloudflare Tunnel
+│   └── cloudflared-config.example.yml
 ├── public/                       # Frontend Web App
 │   ├── audio/
 │   │   └── demo_song.mp3         # Lagu demo sampel stereo
@@ -199,16 +208,22 @@ App-VoiceRemover/
 │   ├── js/
 │   │   └── app.js                # Logika pemutar, mixer, upload & Socket.IO
 │   ├── img/
+│   │   ├── logo.svg              # Logo vektor SVG resmi FYJ Channel
+│   │   ├── logo.png              # Logo resolusi tinggi PNG
 │   │   └── favicon.svg           # Ikon aplikasi
 │   └── index.html                # Halaman utama aplikasi
-├── uploads/                      # Penyimpanan sementara file yang diunggah
-├── outputs/                      # Penyimpanan hasil file audio yang dipisahkan
+├── uploads/                      # Folder upload audio (dibersihkan otomatis)
+├── outputs/                      # Folder hasil pemisahan (dibersihkan otomatis)
 ├── temp/                         # File pemrosesan sementara
 ├── Dockerfile                    # Konfigurasi container Docker untuk cloud & VPS
 ├── docker-compose.yml            # Konfigurasi 1-klik deploy Docker Compose
-├── requirements.txt              # Daftar pustaka AI Python (PyTorch CPU, Demucs)
+├── Caddyfile                     # Konfigurasi Caddy Web Server (Automatic HTTPS)
+├── ecosystem.config.js           # Konfigurasi PM2 Process Manager
+├── requirements.txt              # Daftar pustaka AI Python (PyTorch CPU, Demucs, UVR)
 ├── Procfile                      # Konfigurasi proses web untuk PaaS (Render, Railway, Heroku)
-├── .env.example                  # Contoh variabel lingkungan server
+├── .env.example                  # Template variabel lingkungan & domain
+├── PANDUAN_DOMAIN.md             # Panduan lengkap menghubungkan domain ke web app
+├── domain_setup.bat              # Script interaktif pengaturan domain di Windows
 ├── server.js                     # Backend API & Mesin Pemroses Audio Express
 ├── package.json                  # Konfigurasi dependensi Node.js
 ├── start.bat                     # Peluncur otomatis 1-klik untuk Windows

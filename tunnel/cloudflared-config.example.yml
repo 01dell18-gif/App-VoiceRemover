@@ -1,0 +1,22 @@
+# ==============================================================================
+# FYJ Channel Voice - Cloudflare Tunnel Configuration
+# Cocok untuk menghubungkan domain ke komputer lokal tanpa IP Publik & Port Forwarding
+#
+# Simpan sebagai: ~/.cloudflared/config.yml (atau di folder aplikasi)
+# Jalankan: cloudflared tunnel run fyj-tunnel
+# ==============================================================================
+
+# Ganti dengan UUID tunnel Anda setelah menjalankan: cloudflared tunnel create fyj-tunnel
+tunnel: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+credentials-file: /root/.cloudflared/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.json
+
+ingress:
+  # 1. Routing domain utama ke server FYJ Voice di port 3032
+  - hostname: suara.domainanda.com
+    service: http://127.0.0.1:3032
+    originRequest:
+      connectTimeout: 60s
+      noTLSVerify: true
+
+  # 2. Rule penutup wajib (Catch-all)
+  - service: http_status:404

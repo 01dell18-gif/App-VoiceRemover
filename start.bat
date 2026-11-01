@@ -222,12 +222,23 @@ echo [OK] Paket AI selesai disiapkan!
 echo.
 
 REM -------------------------------------------------------------------
-REM 4. Deteksi Alamat IP Jaringan Lokal (Akses Multi-Device / HP)
+REM 4. Deteksi Alamat IP Jaringan Lokal & Konfigurasi Domain (.env)
 REM -------------------------------------------------------------------
 set "LOCAL_IP=localhost"
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" 2^>nul') do (
     for /f "tokens=1" %%b in ("%%a") do (
         if not "%%b"=="127.0.0.1" set "LOCAL_IP=%%b"
+    )
+)
+
+set "APP_PORT=3032"
+set "APP_DOMAIN="
+set "APP_URL="
+if exist "%~dp0.env" (
+    for /f "usebackq tokens=1,* delims==" %%i in ("%~dp0.env") do (
+        if /i "%%i"=="PORT" if not "%%j"=="" set "APP_PORT=%%j"
+        if /i "%%i"=="DOMAIN" if not "%%j"=="" set "APP_DOMAIN=%%j"
+        if /i "%%i"=="APP_URL" if not "%%j"=="" set "APP_URL=%%j"
     )
 )
 
@@ -238,15 +249,22 @@ echo ======================================================================
 echo  [OK] Semua persiapan selesai!
 echo  Memulai server FYJ Channel Voice dan membuka browser...
 echo.
-echo  Akses di komputer ini      : http://localhost:3032
-echo  Akses dari HP atau laptop  : http://%LOCAL_IP%:3032
+echo  Akses Komputer Lokal       : http://localhost:%APP_PORT%
+echo  Akses dari HP atau Laptop  : http://%LOCAL_IP%:%APP_PORT%
+if defined APP_DOMAIN (
+echo  Akses Domain Publik        : https://%APP_DOMAIN%
+) else if defined APP_URL (
+echo  Akses Domain Publik        : %APP_URL%
+) else (
+echo  Akses Domain Publik        : Belum diset (Bisa diatur di .env / domain_setup.bat)
+)
 echo.
 echo  Browser akan terbuka secara otomatis dalam 2 detik.
 echo  Untuk menghentikan server, tekan [Ctrl + C] di jendela ini.
 echo ======================================================================
 echo.
 
-start "" /b cmd /c "ping 127.0.0.1 -n 3 >nul & start http://localhost:3032"
+start "" /b cmd /c "ping 127.0.0.1 -n 3 >nul & start http://localhost:%APP_PORT%"
 
 "%NODE_CMD%" server.js
 

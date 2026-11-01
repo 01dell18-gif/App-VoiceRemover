@@ -1,0 +1,23 @@
+# ==============================================================================
+# FYJ Channel Voice - Konfigurasi Caddy Web Server (Automatic HTTPS)
+# Simpan file ini sebagai 'Caddyfile' dan jalankan perintah: caddy run
+# ==============================================================================
+
+# Ganti dengan nama domain Anda (Caddy akan otomatis meminta sertifikat SSL dari Let's Encrypt)
+suara.domainanda.com {
+    # Batasi ukuran unggahan file audio ke 100MB
+    request_body {
+        max_size 100MB
+    }
+
+    # Reverse proxy ke backend Node.js (Socket.IO & WebSockets didukung secara otomatis)
+    reverse_proxy 127.0.0.1:3032 {
+        # Transport settings
+        transport http {
+            response_header_timeout 600s
+        }
+    }
+
+    # Kompresi gzip dan zstd
+    encode gzip zstd
+}
