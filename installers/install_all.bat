@@ -89,28 +89,37 @@ if defined PY_CMD (
 echo.
 
 REM -------------------------------------------------------------------
-REM 3. Cek dan Pasang Paket AI Demucs dan PyTorch
+REM 3. Cek dan Pasang Paket AI Demucs dan UVR MDX-Net
 REM -------------------------------------------------------------------
-echo [3/3] Memeriksa Paket AI Demucs...
+echo [3/3] Memeriksa Paket AI Demucs dan UVR MDX-Net...
+if not defined PY_CMD goto :install_ai_done
+
 set "DEMUCS_READY=0"
-if defined PY_CMD (
-    "%PY_CMD%" -m demucs --help >nul 2>&1
-    if %ERRORLEVEL% EQU 0 set "DEMUCS_READY=1"
+set "UVR_READY=0"
+
+"%PY_CMD%" -m demucs --help >nul 2>&1
+if not errorlevel 1 set "DEMUCS_READY=1"
+
+"%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
+if not errorlevel 1 set "UVR_READY=1"
+
+if "%DEMUCS_READY%"=="1" if "%UVR_READY%"=="1" (
+    echo [OK] Modul AI Demucs dan UVR MDX-Net sudah aktif dan siap digunakan!
+    goto :install_ai_done
 )
 
-if "%DEMUCS_READY%"=="1" (
-    echo [OK] Modul AI Demucs - Meta Research - sudah aktif dan siap digunakan!
+echo [!] Paket AI belum lengkap.
+echo [*] Memasang modul AI Demucs, UVR MDX-Net, PyTorch CPU, ONNX, dan dependensi audio...
+echo Harap tunggu beberapa saat...
+if exist "%~dp0setup_ai_packages.bat" (
+    call "%~dp0setup_ai_packages.bat"
 ) else (
-    echo [!] Modul AI Demucs belum terpasang.
-    echo [*] Memasang modul AI Demucs, PyTorch CPU, NumPy, dan LameEnc...
-    echo Harap tunggu beberapa saat...
-    if exist "%~dp0setup_ai_packages.bat" (
-        call "%~dp0setup_ai_packages.bat"
-    ) else (
-        "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-        "%PY_CMD%" -m pip install numpy demucs soundfile lameenc onnxruntime audio-separator
-    )
+    "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+    "%PY_CMD%" -m pip install numpy demucs soundfile lameenc onnxruntime audio-separator
 )
+echo [OK] Paket AI berhasil disiapkan!
+
+:install_ai_done
 echo.
 
 echo ======================================================================
