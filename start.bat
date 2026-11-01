@@ -212,10 +212,11 @@ echo.
 echo [*] Menyiapkan modul AI pemisahan audio Demucs dan UVR MDX-Net...
 if exist "%~dp0installers\setup_ai_packages.bat" (
     call "%~dp0installers\setup_ai_packages.bat"
-) else (
-    "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-    "%PY_CMD%" -m pip install numpy demucs soundfile lameenc onnxruntime audio-separator
+    goto :ai_setup_done
 )
+"%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+"%PY_CMD%" -m pip install numpy demucs soundfile lameenc onnxruntime audio-separator
+:ai_setup_done
 echo [OK] Paket AI selesai disiapkan!
 
 :network_detect
@@ -252,12 +253,15 @@ echo.
 echo  Akses Komputer Lokal       : http://localhost:%APP_PORT%
 echo  Akses dari HP atau Laptop  : http://%LOCAL_IP%:%APP_PORT%
 if defined APP_DOMAIN (
-echo  Akses Domain Publik        : https://%APP_DOMAIN%
-) else if defined APP_URL (
-echo  Akses Domain Publik        : %APP_URL%
-) else (
-echo  Akses Domain Publik        : Belum diset (Bisa diatur di .env / domain_setup.bat)
+    echo  Akses Domain Publik        : https://%APP_DOMAIN%
+    goto :domain_display_done
 )
+if defined APP_URL (
+    echo  Akses Domain Publik        : %APP_URL%
+    goto :domain_display_done
+)
+echo  Akses Domain Publik        : Belum diset - Lihat domain_setup.bat / .env
+:domain_display_done
 echo.
 echo  Browser akan terbuka secara otomatis dalam 2 detik.
 echo  Untuk menghentikan server, tekan [Ctrl + C] di jendela ini.

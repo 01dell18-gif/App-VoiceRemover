@@ -20,3 +20,4 @@ ingress:
 
   # 2. Rule penutup wajib (Catch-all)
   - service: http_status:404
+

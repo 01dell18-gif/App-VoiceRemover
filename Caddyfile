@@ -21,3 +21,4 @@ suara.domainanda.com {
     # Kompresi gzip dan zstd
     encode gzip zstd
 }
+

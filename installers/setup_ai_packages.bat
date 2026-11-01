@@ -3,7 +3,7 @@ title FYJ Channel Voice - Pemasangan Paket AI Pemisah Audio
 color 0B
 
 echo ======================================================================
-echo    FYJ Channel Voice - Pemasangan Paket AI (Demucs & UVR MDX-Net)
+echo    FYJ Channel Voice - Pemasangan Paket AI (Demucs dan UVR MDX-Net)
 echo ======================================================================
 echo.
 
@@ -47,15 +47,15 @@ echo ======================================================================
 echo  Verifikasi Instalasi AI...
 echo ======================================================================
 "%PY_CMD%" -m demucs --help >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [OK] Mesin AI Demucs SIAP! (Pemisahan 4 & 5+ Stems)
+if not errorlevel 1 (
+    echo [OK] Mesin AI Demucs SIAP! (Pemisahan 4 dan 5+ Stems)
 ) else (
     echo [!] Terjadi kendala saat memverifikasi Demucs.
 )
 
 "%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo [OK] Mesin AI UVR MDX-Net SIAP! (Isolasi Vokal & Musik Zero-Bleed)
+if not errorlevel 1 (
+    echo [OK] Mesin AI UVR MDX-Net SIAP! (Isolasi Vokal dan Musik Zero-Bleed)
 ) else (
     echo [!] Modul UVR audio-separator belum aktif.
 )

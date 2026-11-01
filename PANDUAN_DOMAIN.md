@@ -13,7 +13,7 @@ Aplikasi web **FYJ Channel Voice** telah dirancang secara fleksibel (*Domain & C
 4. [Metode 2: VPS Linux dengan Nginx & Let's Encrypt SSL](#metode-2-vps-linux-dengan-nginx--lets-encrypt-ssl)
 5. [Metode 3: Menggunakan Caddy (Automatic HTTPS)](#metode-3-menggunakan-caddy-server-automatic-https)
 6. [Metode 4: Menjalankan Langsung dengan Sertifikat SSL Bawaan (Port 443 & 80)](#metode-4-ssl-langsung-di-nodejs-port-443--80)
-7. [Metode 5: Cloud Hosting / PaaS (Render, Railway, Fly.io)](#metode-5-cloud-hosting--paas-render-railway)
+7. [Metode 5: Cloud Hosting / PaaS (Render, Railway)](#metode-5-cloud-hosting--paas-render-railway)
 8. [Tips Penting Reverse Proxy (Upload 100MB & Timeout AI)](#tips-penting-reverse-proxy)
 
 ---
@@ -237,3 +237,4 @@ Saat menggunakan domain di balik reverse proxy (Nginx, Apache, Cloudflare, Caddy
    * Pemisahan audio menggunakan AI neural network pada lagu berdurasi panjang membutuhkan waktu pemrosesan.
    * *Nginx*: `proxy_read_timeout 600s;`
    * Hal ini mencegah munculnya error `504 Gateway Timeout`.
+

@@ -6,7 +6,7 @@ chcp 65001 >nul 2>&1
 :menu
 cls
 echo ======================================================================
-echo          FYJ Channel Voice - Panduan & Pengaturan Domain Web         
+echo          FYJ Channel Voice - Panduan dan Pengaturan Domain Web         
 echo ======================================================================
 echo.
 echo Aplikasi ini siap digunakan dengan domain sendiri (contoh: suara.domainanda.com).
@@ -22,7 +22,14 @@ echo  [6] Buka Panduan Lengkap (PANDUAN_DOMAIN.md)
 echo  [7] Keluar
 echo.
 echo ======================================================================
+set "PILIHAN="
 set /p "PILIHAN=Masukkan nomor pilihan (1-7): "
+
+if not defined PILIHAN (
+    echo [!] Tidak ada pilihan dimasukkan.
+    timeout /t 2 >nul 2>&1
+    exit /b 0
+)
 
 if "%PILIHAN%"=="1" goto :setup_env
 if "%PILIHAN%"=="2" goto :cloudflare_guide
@@ -31,6 +38,9 @@ if "%PILIHAN%"=="4" goto :caddy_guide
 if "%PILIHAN%"=="5" goto :test_domain
 if "%PILIHAN%"=="6" goto :open_markdown
 if "%PILIHAN%"=="7" exit /b 0
+
+echo [!] Pilihan tidak valid. Silakan pilih 1-7.
+pause
 goto :menu
 
 :setup_env
@@ -43,20 +53,23 @@ echo Masukkan nama domain yang ingin Anda gunakan.
 echo Contoh: suara.domainanda.com atau pemisahvokal.id
 echo (Ketik tanpa http:// atau https://)
 echo.
+set "USER_DOMAIN="
 set /p "USER_DOMAIN=Nama Domain: "
 if "%USER_DOMAIN%"=="" (
     echo [!] Nama domain tidak boleh kosong.
-    timeout /t 2 >nul
+    timeout /t 2 >nul 2>&1
     goto :menu
 )
 
 echo.
 echo Masukkan nomor port aplikasi (Tekan Enter untuk default: 3032):
+set "USER_PORT="
 set /p "USER_PORT=Nomor Port [3032]: "
 if "%USER_PORT%"=="" set "USER_PORT=3032"
 
 echo.
 echo Apakah domain Anda sudah menggunakan HTTPS / SSL? (Y/T)
+set "IS_HTTPS="
 set /p "IS_HTTPS=Gunakan HTTPS [Y]: "
 if /i "%IS_HTTPS%"=="t" (
     set "SCHEME=http"
@@ -207,3 +220,4 @@ if exist "%~dp0PANDUAN_DOMAIN.md" (
     echo File PANDUAN_DOMAIN.md belum ditemukan.
 )
 goto :menu
+
