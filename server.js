@@ -9,7 +9,35 @@ const http = require('http');
 const https = require('https');
 const os = require('os');
 const { Server } = require('socket.io');
-const archiver = require('archiver');
+
+// Loader fleksibel untuk modul archiver (Mendukung CommonJS dan ESM pada semua versi Node.js v18-v24)
+let archiverModule = null;
+async function getArchiverZip(options = { zlib: { level: 6 } }) {
+  if (!archiverModule) {
+    try {
+      archiverModule = await import('archiver');
+    } catch (esmErr) {
+      try {
+        archiverModule = require('archiver');
+      } catch (cjsErr) {
+        throw new Error('Modul archiver gagal dimuat: ' + (esmErr.message || cjsErr.message));
+      }
+    }
+  }
+
+  const mod = archiverModule;
+  if (mod.ZipArchive) {
+    return new mod.ZipArchive(options);
+  }
+  if (typeof mod === 'function') {
+    return mod('zip', options);
+  }
+  if (mod.default) {
+    if (typeof mod.default === 'function') return mod.default('zip', options);
+    if (mod.default.ZipArchive) return new mod.default.ZipArchive(options);
+  }
+  throw new Error('Format modul archiver tidak didukung');
+}
 
 // Muat konfigurasi environment dari file .env jika tersedia
 try {
@@ -483,7 +511,7 @@ app.get('/api/download/:jobId/:track', (req, res) => {
 });
 
 // Download all tracks as a real ZIP file
-app.get('/api/download-zip/:jobId', (req, res) => {
+app.get('/api/download-zip/:jobId', async (req, res) => {
   const job = getOrRecoverJob(req.params.jobId);
   if (!job || !job.results || job.results.length === 0) {
     return res.status(404).json({ error: 'Hasil pemisahan tidak ditemukan' });
@@ -492,18 +520,17 @@ app.get('/api/download-zip/:jobId', (req, res) => {
   const baseName = path.parse(job.filename).name;
   const zipFilename = `${baseName}_FYJ_Separated.zip`;
 
+  let archive;
+  try {
+    archive = await getArchiverZip({ zlib: { level: 6 } });
+  } catch (err) {
+    console.error('Archive initialization error:', err);
+    return res.status(500).json({ error: 'Gagal menyiapkan modul pengarsipan ZIP: ' + err.message });
+  }
+
   res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(zipFilename)}"`);
 
-  function createZip() {
-    if (typeof archiver === 'function') return archiver('zip', { zlib: { level: 6 } });
-    if (archiver.ZipArchive) return new archiver.ZipArchive({ zlib: { level: 6 } });
-    if (archiver.default && typeof archiver.default === 'function') return archiver.default('zip', { zlib: { level: 6 } });
-    throw new Error('Unsupported archiver format');
-  }
-
-  const archive = createZip();
-  
   archive.on('error', (err) => {
     console.error('Archive error:', err);
     if (!res.headersSent) {
