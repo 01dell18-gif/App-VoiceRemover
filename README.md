@@ -1,6 +1,8 @@
-# FYJ Channel Voice - AI & DSP Vocal & Music Separator
+<p align="center">
+  <img src="public/img/logo.png" alt="FYJ Channel Voice Logo" width="140" />
+</p>
 
-![FYJ Channel Voice Logo](public/img/logo.png)
+# FYJ Channel Voice - AI & DSP Vocal & Music Separator
 
 ### 🎵 Pisahkan Vokal dari Musik Lagu Secara Cepat & Akurat 🎵
 
