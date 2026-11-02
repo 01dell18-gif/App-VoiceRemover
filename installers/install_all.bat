@@ -82,7 +82,12 @@ if exist "%~dp0..\node_modules\ffmpeg-static\ffmpeg.exe" (
 if exist "%~dp0ffmpeg.zip" (
     echo [*] Mengekstrak FFmpeg dari folder installers...
     if not exist "%~dp0..\node_modules\ffmpeg-static\" mkdir "%~dp0..\node_modules\ffmpeg-static\"
-    tar -xf "%~dp0ffmpeg.zip" -C "%~dp0..\node_modules\ffmpeg-static\" >nul 2>&1
+    where tar >nul 2>&1
+    if not errorlevel 1 (
+        tar -xf "%~dp0ffmpeg.zip" -C "%~dp0..\node_modules\ffmpeg-static\" >nul 2>&1
+    ) else (
+        powershell -NoProfile -Command "Expand-Archive -Path '%~dp0ffmpeg.zip' -DestinationPath '%~dp0..\node_modules\ffmpeg-static\' -Force" >nul 2>&1
+    )
     if exist "%~dp0..\node_modules\ffmpeg-static\ffmpeg.exe" (
         echo [OK] FFmpeg berhasil disiapkan!
         goto :ffmpeg_ready
@@ -142,6 +147,12 @@ if exist "%~dp0python-3.11.9-amd64.exe" (
     if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
         set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
         echo [OK] Python 3.11.9 berhasil dipasang!
+    ) else if exist "C:\Python311\python.exe" (
+        set "PY_CMD=C:\Python311\python.exe"
+        echo [OK] Python 3.11.9 berhasil dipasang!
+    ) else if exist "%ProgramFiles%\Python311\python.exe" (
+        set "PY_CMD=%ProgramFiles%\Python311\python.exe"
+        echo [OK] Python 3.11.9 berhasil dipasang!
     )
 ) else (
     echo [!] File python-3.11.9-amd64.exe tidak ditemukan.
@@ -169,8 +180,15 @@ echo.
 
 echo ======================================================================
 echo  [OK] Semua instalasi dan konfigurasi berhasil diselesaikan!
-echo  Untuk memulai aplikasi web, silakan jalankan start.bat
-echo  yang berada di folder utama proyek.
 echo ======================================================================
 echo.
+set "START_APP="
+set /p "START_APP=Apakah Anda ingin langsung menjalankan aplikasi web sekarang? (Y/T) [Y]: "
+if /i not "%START_APP%"=="t" (
+    echo [*] Memulai server FYJ Channel Voice via start.bat...
+    start "" "%~dp0..\start.bat"
+    exit /b 0
+)
+echo.
+echo Untuk memulai aplikasi nanti, silakan jalankan start.bat di folder utama.
 pause

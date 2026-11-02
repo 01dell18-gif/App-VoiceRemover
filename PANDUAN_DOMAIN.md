@@ -26,6 +26,7 @@ domain_setup.bat
 ```
 Script interaktif ini akan membantu Anda:
 * Memasukkan nama domain ke file `.env` secara otomatis.
+* Menjalankan aplikasi web secara langsung (`start.bat`).
 * Mengatur port aplikasi.
 * Menguji resolusi DNS dan koneksi domain.
 * Membuka panduan konfigurasi Nginx / Caddy / Cloudflare.

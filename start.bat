@@ -142,7 +142,12 @@ if exist "%~dp0node_modules\ffmpeg-static\ffmpeg.exe" (
 if exist "%~dp0installers\ffmpeg.zip" (
     echo  [*] Mengekstrak modul audio FFmpeg dari installers...
     if not exist "%~dp0node_modules\ffmpeg-static\" mkdir "%~dp0node_modules\ffmpeg-static\"
-    tar -xf "%~dp0installers\ffmpeg.zip" -C "%~dp0node_modules\ffmpeg-static\" >nul 2>&1
+    where tar >nul 2>&1
+    if not errorlevel 1 (
+        tar -xf "%~dp0installers\ffmpeg.zip" -C "%~dp0node_modules\ffmpeg-static\" >nul 2>&1
+    ) else (
+        powershell -NoProfile -Command "Expand-Archive -Path '%~dp0installers\ffmpeg.zip' -DestinationPath '%~dp0node_modules\ffmpeg-static\' -Force" >nul 2>&1
+    )
     if exist "%~dp0node_modules\ffmpeg-static\ffmpeg.exe" (
         echo [OK] Mesin Audio FFmpeg siap - Berhasil diekstrak.
         goto :check_python
@@ -213,6 +218,16 @@ if exist "%~dp0installers\python-3.11.9-amd64.exe" (
     start /wait "" "%~dp0installers\python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_test=0 SimpleInstall=1
     if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
         set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+        echo  [OK] Python 3.11.9 berhasil dipasang di komputer ini!
+        goto :python_found
+    )
+    if exist "C:\Python311\python.exe" (
+        set "PY_CMD=C:\Python311\python.exe"
+        echo  [OK] Python 3.11.9 berhasil dipasang di komputer ini!
+        goto :python_found
+    )
+    if exist "%ProgramFiles%\Python311\python.exe" (
+        set "PY_CMD=%ProgramFiles%\Python311\python.exe"
         echo  [OK] Python 3.11.9 berhasil dipasang di komputer ini!
         goto :python_found
     )

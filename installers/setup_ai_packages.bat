@@ -72,6 +72,16 @@ if exist "%~dp0python-3.11.9-amd64.exe" (
         echo [OK] Python 3.11.9 berhasil dipasang!
         goto :python_ready
     )
+    if exist "C:\Python311\python.exe" (
+        set "PY_CMD=C:\Python311\python.exe"
+        echo [OK] Python 3.11.9 berhasil dipasang!
+        goto :python_ready
+    )
+    if exist "%ProgramFiles%\Python311\python.exe" (
+        set "PY_CMD=%ProgramFiles%\Python311\python.exe"
+        echo [OK] Python 3.11.9 berhasil dipasang!
+        goto :python_ready
+    )
 )
 
 echo [!] Python 3.11 yang kompatibel tidak dapat disiapkan.

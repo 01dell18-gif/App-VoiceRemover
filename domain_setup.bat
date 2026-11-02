@@ -14,16 +14,17 @@ echo.
 echo Pilihlah menu di bawah ini:
 echo.
 echo  [1] Atur Nama Domain ke dalam File .env (Otomatis)
-echo  [2] Panduan Cloudflare Tunnel (Domain dari PC lokal tanpa buka port router)
-echo  [3] Tampilkan Konfigurasi Nginx Reverse Proxy (Untuk VPS Linux)
-echo  [4] Tampilkan Konfigurasi Caddyfile (Automatic HTTPS)
-echo  [5] Uji Sambungan Domain Web
-echo  [6] Buka Panduan Lengkap (PANDUAN_DOMAIN.md)
-echo  [7] Keluar
+echo  [2] Jalankan Aplikasi Web Sekarang (start.bat)
+echo  [3] Panduan Cloudflare Tunnel (Domain dari PC lokal tanpa buka port router)
+echo  [4] Tampilkan Konfigurasi Nginx Reverse Proxy (Untuk VPS Linux)
+echo  [5] Tampilkan Konfigurasi Caddyfile (Automatic HTTPS)
+echo  [6] Uji Sambungan Domain Web
+echo  [7] Buka Panduan Lengkap (PANDUAN_DOMAIN.md)
+echo  [8] Keluar
 echo.
 echo ======================================================================
 set "PILIHAN="
-set /p "PILIHAN=Masukkan nomor pilihan (1-7): "
+set /p "PILIHAN=Masukkan nomor pilihan (1-8): "
 
 if not defined PILIHAN (
     echo [!] Tidak ada pilihan dimasukkan.
@@ -32,16 +33,23 @@ if not defined PILIHAN (
 )
 
 if "%PILIHAN%"=="1" goto :setup_env
-if "%PILIHAN%"=="2" goto :cloudflare_guide
-if "%PILIHAN%"=="3" goto :nginx_guide
-if "%PILIHAN%"=="4" goto :caddy_guide
-if "%PILIHAN%"=="5" goto :test_domain
-if "%PILIHAN%"=="6" goto :open_markdown
-if "%PILIHAN%"=="7" exit /b 0
+if "%PILIHAN%"=="2" goto :run_app
+if "%PILIHAN%"=="3" goto :cloudflare_guide
+if "%PILIHAN%"=="4" goto :nginx_guide
+if "%PILIHAN%"=="5" goto :caddy_guide
+if "%PILIHAN%"=="6" goto :test_domain
+if "%PILIHAN%"=="7" goto :open_markdown
+if "%PILIHAN%"=="8" exit /b 0
 
-echo [!] Pilihan tidak valid. Silakan pilih 1-7.
+echo [!] Pilihan tidak valid. Silakan pilih 1-8.
 pause
 goto :menu
+
+:run_app
+echo.
+echo [*] Memulai server FYJ Channel Voice via start.bat...
+start "" "%~dp0start.bat"
+exit /b 0
 
 :setup_env
 cls
@@ -102,7 +110,13 @@ echo ----------------------------------------------------------------------
 echo.
 echo Sekarang saat Anda menjalankan start.bat, aplikasi akan mengenali domain Anda.
 echo.
-pause
+set "RUN_NOW="
+set /p "RUN_NOW=Apakah Anda ingin langsung memulai aplikasi web sekarang? (Y/T) [Y]: "
+if /i not "!RUN_NOW!"=="t" (
+    echo [*] Membuka start.bat...
+    start "" "%~dp0start.bat"
+    exit /b 0
+)
 goto :menu
 
 :cloudflare_guide

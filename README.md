@@ -56,9 +56,10 @@ Aplikasi berjalan pada port default **`3032`** (`http://localhost:3032`).
 
 Cukup klik ganda (double-click) file **`start.bat`** di folder utama:
 
-1. **Pemeriksaan Otomatis**: Script akan memeriksa apakah program yang diperlukan (Node.js & dependensi) sudah ada di perangkat.
-2. **Langsung Berjalan**: Jika program sudah ada, sistem **langsung menjalankan server** dan **otomatis membuka peramban web di `http://localhost:3032`** dalam 2 detik tanpa menunggu lama.
-3. **Pemasangan Mandiri**: Jika dijalankan di komputer baru yang belum memiliki Node.js, `start.bat` akan otomatis mendeteksi dan memasang file installer Node.js dari folder `installers/`.
+1. **Pemeriksaan & Self-Healing Otomatis**: Script akan memeriksa runtime Microsoft Visual C++, Node.js, modul FFmpeg, serta Python 3.11 khusus AI.
+2. **Pemasangan Otomatis di Komputer Baru**: Jika dijalankan di komputer lain yang belum memiliki aplikasi pendukung (atau versi Python di sistem tidak kompatibel seperti Python 3.15), `start.bat` akan **otomatis memasang installer resmi yang sudah disediakan di folder `installers/`** tanpa perlu mengunduh manual.
+3. **Langsung Berjalan**: Sistem langsung menjalankan server dan **otomatis membuka peramban web di `http://localhost:3032`** dalam 2 detik.
+4. **Installer Lengkap 1-Klik**: Anda juga dapat menjalankan file **[`installers/install_all.bat`](installers/install_all.bat)** untuk memasang seluruh kebutuhan komputer baru secara menyeluruh.
 
 ---
 
