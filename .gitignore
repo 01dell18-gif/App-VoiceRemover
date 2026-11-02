@@ -14,3 +14,6 @@ outputs/*
 !outputs/.gitkeep
 temp/*
 !temp/.gitkeep
+
+# Ignore assembled large PyTorch wheel (assembled from parts by script)
+installers/wheels/torch-*.whl

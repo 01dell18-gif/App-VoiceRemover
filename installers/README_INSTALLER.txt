@@ -26,13 +26,23 @@ DAFTAR FILE INSTALLER & KODE PEMASANGAN:
    - Fungsi: Paket arsip biner mesin audio FFmpeg static bawaan untuk Windows.
    - Status: Mesin pemroses audio DSP dan konversi audio format MP3/WAV/FLAC.
 
-5. setup_ai_packages.bat
-   - Fungsi: Script otomatis untuk menginstal PyTorch CPU dan modul Demucs v4.1,
-     UVR MDX-Net (audio-separator), ONNX Runtime, NumPy, SoundFile, dan LameEnc via pip.
+5. node_modules.zip
+   - Fungsi: Arsip seluruh paket pustaka Node.js (Express, Multer, Socket.IO, Archiver, Dotenv, dsb).
+   - Status: Memungkinkan server langsung berjalan 100% offline tanpa perlu `npm install` ke internet.
 
-6. install_all.bat
+6. Folder wheels/ (75 file binary wheels Python AI)
+   - Fungsi: Kumpulan seluruh wheel pustaka AI PyTorch CPU, Demucs, UVR MDX-Net, ONNX Runtime,
+     NumPy, SoundFile, LameEnc, dan seluruh dependensi turunannya untuk Python 3.11 64-bit.
+   - Status: Dipasang otomatis secara offline via pip (--no-index --find-links).
+   - Catatan: File PyTorch CPU dibagi ke dalam bagian kecil (torch_cpu.part1 s.d part3) agar aman
+     dari batasan ukuran file GitHub, dan digabungkan otomatis saat proses instalasi.
+
+7. setup_ai_packages.bat
+   - Fungsi: Script otomatis untuk menginstal paket AI dari folder wheels/ secara offline tanpa internet.
+
+8. install_all.bat
    - Fungsi: Script 1-klik untuk memeriksa dan memasang seluruh paket secara 
-     lengkap (Visual C++, Node.js, FFmpeg, Python 3.11, dan paket AI Demucs & UVR)
+     lengkap (Visual C++, Node.js, node_modules, FFmpeg, Python 3.11, dan paket AI Demucs & UVR)
      tanpa perlu langkah manual.
 
 CARA MENGGUNAKAN DI PERANGKAT / KOMPUTER LAIN:

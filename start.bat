@@ -87,6 +87,20 @@ REM -------------------------------------------------------------------
 echo [2/3] Memeriksa dependensi aplikasi web [node_modules]...
 if exist "%~dp0node_modules\" goto :deps_ready
 
+if exist "%~dp0installers\node_modules.zip" (
+    echo  [*] Menyiapkan paket node_modules dari folder installers (Offline)...
+    where tar >nul 2>&1
+    if not errorlevel 1 (
+        tar -xf "%~dp0installers\node_modules.zip" -C "%~dp0" >nul 2>&1
+    ) else (
+        powershell -NoProfile -Command "Expand-Archive -Path '%~dp0installers\node_modules.zip' -DestinationPath '%~dp0' -Force" >nul 2>&1
+    )
+    if exist "%~dp0node_modules\" (
+        echo [OK] Paket node_modules offline berhasil diekstrak!
+        goto :deps_ready
+    )
+)
+
 echo  Dependensi belum terpasang. Menjalankan npm install...
 echo  Harap tunggu beberapa saat...
 
@@ -258,6 +272,13 @@ echo.
 echo [*] Menyiapkan modul AI pemisahan audio Demucs dan UVR MDX-Net...
 if exist "%~dp0installers\setup_ai_packages.bat" (
     call "%~dp0installers\setup_ai_packages.bat" --no-pause
+    goto :ai_setup_done
+)
+if exist "%~dp0installers\wheels\" (
+    if exist "%~dp0installers\wheels\rejoin_torch.ps1" (
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0installers\wheels\rejoin_torch.ps1"
+    )
+    "%PY_CMD%" -m pip install --no-index --find-links="%~dp0installers\wheels" --prefer-binary torch torchaudio numpy soundfile lameenc onnxruntime audio-separator demucs
     goto :ai_setup_done
 )
 "%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu --prefer-binary

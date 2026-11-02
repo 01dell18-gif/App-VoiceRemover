@@ -95,8 +95,26 @@ echo [*] Menggunakan: %PY_VER% (%PY_CMD%)
 echo.
 
 REM -------------------------------------------------------------------
-REM 2. Pemasangan Pustaka AI Menggunakan Binary Wheels Resmi (Tanpa Kompilasi C++)
+REM 2. Pemasangan Pustaka AI (Demucs, UVR MDX-Net, PyTorch, dsb.)
 REM -------------------------------------------------------------------
+set "WHEELS_DIR=%~dp0wheels"
+
+if exist "%WHEELS_DIR%\" (
+    echo [*] Mendeteksi paket Python wheels offline di folder installers\wheels...
+
+    REM Gabungkan kembali PyTorch wheel jika belum ada
+    if not exist "%WHEELS_DIR%\torch-2.15.0+cpu-cp311-cp311-win_amd64.whl" (
+        if exist "%WHEELS_DIR%\rejoin_torch.ps1" (
+            powershell -NoProfile -ExecutionPolicy Bypass -File "%WHEELS_DIR%\rejoin_torch.ps1"
+        )
+    )
+
+    echo [*] Memasang paket AI secara OFFLINE (Tanpa perlu koneksi internet)...
+    "%PY_CMD%" -m pip install --no-index --find-links="%WHEELS_DIR%" --prefer-binary torch torchaudio numpy soundfile lameenc onnxruntime audio-separator demucs
+    goto :verify_ai
+)
+
+echo [INFO] Folder wheels offline tidak ditemukan, mengunduh via online...
 echo [1/3] Memperbarui pip, setuptools, dan wheel...
 "%PY_CMD%" -m pip install --upgrade pip setuptools wheel --prefer-binary >nul 2>&1
 
@@ -107,6 +125,8 @@ echo [2/3] Memasang PyTorch CPU Engine (Kualitas Studio)...
 echo.
 echo [3/3] Memasang Demucs AI, UVR MDX-Net, ONNX Runtime, dan modul audio...
 "%PY_CMD%" -m pip install --prefer-binary numpy soundfile lameenc onnxruntime audio-separator demucs
+
+:verify_ai
 
 echo.
 echo ======================================================================

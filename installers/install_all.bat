@@ -69,6 +69,21 @@ if defined NODE_CMD (
         start https://nodejs.org/en/download/
     )
 )
+
+if not exist "%~dp0..\node_modules\" (
+    if exist "%~dp0node_modules.zip" (
+        echo [*] Menyiapkan paket node_modules dari folder installers (Offline)...
+        where tar >nul 2>&1
+        if not errorlevel 1 (
+            tar -xf "%~dp0node_modules.zip" -C "%~dp0..\" >nul 2>&1
+        ) else (
+            powershell -NoProfile -Command "Expand-Archive -Path '%~dp0node_modules.zip' -DestinationPath '%~dp0..\' -Force" >nul 2>&1
+        )
+        if exist "%~dp0..\node_modules\" (
+            echo [OK] Paket node_modules offline berhasil disiapkan!
+        )
+    )
+)
 echo.
 
 REM -------------------------------------------------------------------

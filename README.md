@@ -56,10 +56,10 @@ Aplikasi berjalan pada port default **`3032`** (`http://localhost:3032`).
 
 Cukup klik ganda (double-click) file **`start.bat`** di folder utama:
 
-1. **Pemeriksaan & Self-Healing Otomatis**: Script akan memeriksa runtime Microsoft Visual C++, Node.js, modul FFmpeg, serta Python 3.11 khusus AI.
-2. **Pemasangan Otomatis di Komputer Baru**: Jika dijalankan di komputer lain yang belum memiliki aplikasi pendukung (atau versi Python di sistem tidak kompatibel seperti Python 3.15), `start.bat` akan **otomatis memasang installer resmi yang sudah disediakan di folder `installers/`** tanpa perlu mengunduh manual.
+1. **Pemeriksaan & Self-Healing Otomatis**: Script akan memeriksa runtime Microsoft Visual C++, Node.js, paket dependensi `node_modules`, modul audio FFmpeg, serta Python 3.11 khusus AI.
+2. **Pemasangan 100% Offline di Komputer Baru**: Jika dijalankan di komputer lain yang belum memiliki aplikasi pendukung atau tidak terhubung internet, `start.bat` akan **otomatis mengambil dan memasang paket offline lengkap yang sudah disediakan di folder `installers/`** (Visual C++, Node.js, `node_modules.zip`, FFmpeg, Python 3.11, dan 75 paket biner wheels AI Demucs & UVR MDX-Net).
 3. **Langsung Berjalan**: Sistem langsung menjalankan server dan **otomatis membuka peramban web di `http://localhost:3032`** dalam 2 detik.
-4. **Installer Lengkap 1-Klik**: Anda juga dapat menjalankan file **[`installers/install_all.bat`](installers/install_all.bat)** untuk memasang seluruh kebutuhan komputer baru secara menyeluruh.
+4. **Installer Lengkap 1-Klik**: Anda juga dapat menjalankan file **[`installers/install_all.bat`](installers/install_all.bat)** untuk memasang seluruh kebutuhan komputer baru secara menyeluruh tanpa koneksi internet.
 
 ---
 
