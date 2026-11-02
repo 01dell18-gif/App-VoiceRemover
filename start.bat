@@ -88,12 +88,12 @@ echo [2/3] Memeriksa dependensi aplikasi web [node_modules]...
 if exist "%~dp0node_modules\" goto :deps_ready
 
 if exist "%~dp0installers\node_modules.zip" (
-    echo  [*] Menyiapkan paket node_modules dari folder installers (Offline)...
+    echo  [*] Menyiapkan paket node_modules dari folder installers [Offline]...
     where tar >nul 2>&1
     if not errorlevel 1 (
-        tar -xf "%~dp0installers\node_modules.zip" -C "%~dp0" >nul 2>&1
+        tar -xf "%~dp0installers\node_modules.zip" >nul 2>&1
     ) else (
-        powershell -NoProfile -Command "Expand-Archive -Path '%~dp0installers\node_modules.zip' -DestinationPath '%~dp0' -Force" >nul 2>&1
+        powershell -NoProfile -Command "Expand-Archive -Path '%~dp0installers\node_modules.zip' -DestinationPath '%~dp0.' -Force" >nul 2>&1
     )
     if exist "%~dp0node_modules\" (
         echo [OK] Paket node_modules offline berhasil diekstrak!
@@ -220,7 +220,7 @@ if not errorlevel 1 (
         set "PY_CMD=python"
         goto :python_found
     ) else (
-        echo  [!] Python di PATH tidak kompatibel dengan modul AI (Ditemukan versi non-standar).
+        echo  [!] Python di PATH tidak kompatibel dengan modul AI - Ditemukan versi non-standar.
     )
 )
 

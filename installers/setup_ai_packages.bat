@@ -57,7 +57,7 @@ if not errorlevel 1 (
         set "PY_CMD=python"
         goto :python_ready
     ) else (
-        echo [!] Python di PATH tidak kompatibel dengan modul AI (Ditemukan versi non-standar).
+        echo [!] Python di PATH tidak kompatibel dengan modul AI - Ditemukan versi non-standar.
     )
 )
 
@@ -109,7 +109,7 @@ if exist "%WHEELS_DIR%\" (
         )
     )
 
-    echo [*] Memasang paket AI secara OFFLINE (Tanpa perlu koneksi internet)...
+    echo [*] Memasang paket AI secara OFFLINE [Tanpa perlu koneksi internet]...
     "%PY_CMD%" -m pip install --no-index --find-links="%WHEELS_DIR%" --prefer-binary torch torchaudio numpy soundfile lameenc onnxruntime audio-separator demucs
     goto :verify_ai
 )
@@ -138,7 +138,7 @@ set "UVR_OK=0"
 "%PY_CMD%" -m demucs --help >nul 2>&1
 if not errorlevel 1 (
     set "DEMUCS_OK=1"
-    echo [OK] Mesin AI Demucs SIAP! (Pemisahan 4 dan 5+ Stems)
+    echo [OK] Mesin AI Demucs SIAP! [Pemisahan 4 dan 5+ Stems]
 ) else (
     echo [!] Mesin Demucs belum aktif.
 )
@@ -146,7 +146,7 @@ if not errorlevel 1 (
 "%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
 if not errorlevel 1 (
     set "UVR_OK=1"
-    echo [OK] Mesin AI UVR MDX-Net SIAP! (Isolasi Vokal dan Musik Zero-Bleed)
+    echo [OK] Mesin AI UVR MDX-Net SIAP! [Isolasi Vokal dan Musik Zero-Bleed]
 ) else (
     echo [!] Modul UVR audio-separator belum aktif.
 )
