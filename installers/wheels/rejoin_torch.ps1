@@ -20,3 +20,4 @@ if ((Test-Path $part1) -and (Test-Path $part2) -and (Test-Path $part3)) {
     $out.Close()
     Write-Host "[OK] PyTorch CPU wheel siap digunakan."
 }
+
