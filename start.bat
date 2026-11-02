@@ -120,13 +120,33 @@ echo [OK] Dependensi node_modules sudah siap.
 echo.
 
 REM -------------------------------------------------------------------
-REM 3. Pemeriksaan Mesin Pemisah Audio (FFmpeg, Python, Demucs, UVR)
+REM 3. Pemeriksaan Runtime C++, Mesin Pemisah FFmpeg, dan Python AI
 REM -------------------------------------------------------------------
-echo [3/3] Memeriksa Mesin Pemisah Audio FFmpeg dan AI Engine...
+echo [3/3] Memeriksa Runtime Sistem, Mesin Audio FFmpeg, dan AI Engine...
 
+REM 3.1 Pasang Visual C++ Redistributable (Jika Tersedia)
+if exist "%~dp0installers\vc_redist.x64.exe" (
+    reg query "HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\X64" /v Installed >nul 2>&1
+    if errorlevel 1 (
+        echo  [*] Memasang Microsoft Visual C++ 2015-2022 x64 Runtime...
+        start /wait "" "%~dp0installers\vc_redist.x64.exe" /install /passive /norestart
+    )
+)
+
+REM 3.2 Mesin Audio FFmpeg
 if exist "%~dp0node_modules\ffmpeg-static\ffmpeg.exe" (
     echo [OK] Mesin Audio FFmpeg DSP siap - Internal bawaan aplikasi.
     goto :check_python
+)
+
+if exist "%~dp0installers\ffmpeg.zip" (
+    echo  [*] Mengekstrak modul audio FFmpeg dari installers...
+    if not exist "%~dp0node_modules\ffmpeg-static\" mkdir "%~dp0node_modules\ffmpeg-static\"
+    tar -xf "%~dp0installers\ffmpeg.zip" -C "%~dp0node_modules\ffmpeg-static\" >nul 2>&1
+    if exist "%~dp0node_modules\ffmpeg-static\ffmpeg.exe" (
+        echo [OK] Mesin Audio FFmpeg siap - Berhasil diekstrak.
+        goto :check_python
+    )
 )
 
 where ffmpeg >nul 2>&1
@@ -135,21 +155,15 @@ if not errorlevel 1 (
     goto :check_python
 )
 
-echo [INFO] Menyiapkan modul FFmpeg...
+echo  [INFO] Menyiapkan modul FFmpeg...
 call npm install ffmpeg-static
 
 :check_python
 set "PY_CMD="
+
+REM Prioritas 1: Python 3.11 resmi
 if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
     set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
-    goto :python_found
-)
-if exist "%LocalAppData%\Programs\Python\Python310\python.exe" (
-    set "PY_CMD=%LocalAppData%\Programs\Python\Python310\python.exe"
-    goto :python_found
-)
-if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
-    set "PY_CMD=%LocalAppData%\Programs\Python\Python312\python.exe"
     goto :python_found
 )
 if exist "C:\Python311\python.exe" (
@@ -160,34 +174,51 @@ if exist "%ProgramFiles%\Python311\python.exe" (
     set "PY_CMD=%ProgramFiles%\Python311\python.exe"
     goto :python_found
 )
+if exist "%LocalAppData%\Programs\Python\Python310\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python310\python.exe"
+    goto :python_found
+)
+if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python312\python.exe"
+    goto :python_found
+)
 
+REM Prioritas 2: py launcher 3.11
 where py >nul 2>&1
 if not errorlevel 1 (
-    py -3.11 -c "import sys" >nul 2>&1
+    py -3.11 -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
     if not errorlevel 1 (
         set "PY_CMD=py -3.11"
         goto :python_found
     )
 )
 
+REM Prioritas 3: Cek apakah python di system PATH kompatibel dengan PyTorch (Python 3.9 - 3.12 64-bit)
 where python >nul 2>&1
 if not errorlevel 1 (
-    set "PY_CMD=python"
-    goto :python_found
+    python -c "import sys; sys.exit(0 if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else 1)" >nul 2>&1
+    if not errorlevel 1 (
+        set "PY_CMD=python"
+        goto :python_found
+    ) else (
+        echo  [!] Python di PATH tidak kompatibel dengan modul AI (Ditemukan versi non-standar).
+    )
 )
 
-REM Jika Python belum ada, coba installer lokal
+REM Prioritas 4: Pasang Python 3.11.9 64-bit resmi dari folder installers
 if exist "%~dp0installers\python-3.11.9-amd64.exe" (
     echo.
-    echo [*] Python belum terdeteksi. Memasang Python 3.11 dari folder installers...
-    start /wait "" "%~dp0installers\python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 SimpleInstall=1
+    echo  [*] Memasang Python 3.11.9 64-bit resmi dari folder installers...
+    echo      Mohon tunggu sebentar proses instalasi berlangsung...
+    start /wait "" "%~dp0installers\python-3.11.9-amd64.exe" /passive InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_test=0 SimpleInstall=1
     if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
         set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
+        echo  [OK] Python 3.11.9 berhasil dipasang di komputer ini!
         goto :python_found
     )
 )
 
-echo [INFO] Python tidak terdeteksi. Menggunakan mode internal FFmpeg DSP.
+echo  [INFO] Python 3.11 belum siap. Menggunakan mode internal FFmpeg DSP (Aplikasi tetap berjalan normal).
 goto :network_detect
 
 :python_found
@@ -211,13 +242,13 @@ if "%DEMUCS_READY%"=="1" if "%UVR_READY%"=="1" (
 echo.
 echo [*] Menyiapkan modul AI pemisahan audio Demucs dan UVR MDX-Net...
 if exist "%~dp0installers\setup_ai_packages.bat" (
-    call "%~dp0installers\setup_ai_packages.bat"
+    call "%~dp0installers\setup_ai_packages.bat" --no-pause
     goto :ai_setup_done
 )
-"%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-"%PY_CMD%" -m pip install numpy demucs soundfile lameenc onnxruntime audio-separator
+"%PY_CMD%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu --prefer-binary
+"%PY_CMD%" -m pip install --prefer-binary numpy demucs soundfile lameenc onnxruntime audio-separator
 :ai_setup_done
-echo [OK] Paket AI selesai disiapkan!
+echo [OK] Pemeriksaan paket AI selesai.
 
 :network_detect
 echo.

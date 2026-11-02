@@ -172,17 +172,17 @@ sudo certbot --nginx -d suara.domainanda.com
 
 ## 📦 Paket Installer Offline (Perangkat Lain)
 
-Di dalam folder **[`installers/`](installers/)** telah disediakan file instalasi resmi agar aplikasi dapat langsung dipasang dan dijalankan di komputer mana saja tanpa koneksi internet:
+Di dalam folder **[`installers/`](installers/)** telah disediakan file instalasi resmi agar aplikasi dapat langsung dipasang dan dijalankan di komputer mana saja secara mandiri:
 
 | File | Keterangan | Status |
 | --- | --- | --- |
+| **`vc_redist.x64.exe`** | Microsoft Visual C++ 2015-2022 x64 Runtime untuk library AI | **Wajib** |
 | **`node-v20.18.0-x64.msi`** | Runtime Node.js LTS 64-bit untuk menjalankan server | **Wajib** |
-| **`python-3.11.9-amd64.exe`** | Python 3.11 resmi untuk mendukung modul AI Demucs | Opsional |
-| **`install_all.bat`** | Script 1-klik untuk memasang Node.js & Python | Utilitas |
-| **`setup_ai_packages.bat`** | Script otomatis memasang paket AI Demucs & PyTorch CPU | Utilitas AI |
+| **`python-3.11.9-amd64.exe`** | Python 3.11.9 64-bit resmi untuk modul AI Demucs & UVR MDX-Net | Direkomendasikan |
+| **`ffmpeg.zip`** | Arsip biner audio FFmpeg static bawaan Windows | Mesin Audio |
+| **`install_all.bat`** | Script 1-klik untuk memasang seluruh paket secara otomatis | Utilitas |
+| **`setup_ai_packages.bat`** | Script otomatis memasang paket AI Demucs & UVR via binary wheels | Utilitas AI |
 | **`README_INSTALLER.txt`** | Panduan petunjuk instalasi di perangkat lain | Dokumentasi |
-
-> **Catatan**: Aplikasi sudah menyertakan paket internal `ffmpeg-static` bawaan sehingga pemisahan audio langsung berfungsi tanpa konfigurasi rumit.
 
 ---
 
@@ -191,10 +191,12 @@ Di dalam folder **[`installers/`](installers/)** telah disediakan file instalasi
 ```text
 App-VoiceRemover/
 ├── installers/                   # Paket installer offline untuk komputer lain
+│   ├── vc_redist.x64.exe         # Visual C++ 2015-2022 x64 Runtime
 │   ├── node-v20.18.0-x64.msi     # Installer Node.js LTS
-│   ├── python-3.11.9-amd64.exe   # Installer Python 3.11
-│   ├── install_all.bat           # Script pasang otomatis Node.js & Python
-│   ├── setup_ai_packages.bat     # Script pasang modul AI Demucs
+│   ├── python-3.11.9-amd64.exe   # Installer Python 3.11.9 64-bit
+│   ├── ffmpeg.zip                # Arsip biner audio FFmpeg static
+│   ├── install_all.bat           # Script pasang otomatis paket pendukung
+│   ├── setup_ai_packages.bat     # Script pasang modul AI Demucs & UVR
 │   └── README_INSTALLER.txt      # Petunjuk installer
 ├── nginx/                        # Konfigurasi reverse proxy domain
 │   └── fyj-voice.conf            # Template konfigurasi Nginx + SSL

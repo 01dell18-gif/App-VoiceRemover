@@ -168,16 +168,17 @@ async function findPythonAndDemucs() {
     'py'
   ].filter(Boolean);
 
-  // Tahap 1: Temukan Python yang valid
+  // Tahap 1: Temukan Python yang valid dan kompatibel dengan AI Demucs/UVR (Python 3.9 - 3.12 64-bit)
   for (const candidate of candidates) {
     if ((candidate.includes('\\') || candidate.startsWith('/')) && !fs.existsSync(candidate)) continue;
     try {
-      await new Promise((resolve, reject) => {
-        exec(`"${candidate}" --version`, (err, stdout) => {
-          if (err) reject(err);
-          else resolve(stdout);
+      const compatible = await new Promise((resolve) => {
+        exec(`"${candidate}" -c "import sys; sys.exit(0 if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else 1)"`, (err) => {
+          resolve(!err);
         });
       });
+      if (!compatible) continue;
+
       pythonCmd = candidate;
       break;
     } catch (e) {}
