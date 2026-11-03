@@ -6,7 +6,7 @@
 
 ### 🎵 Pisahkan Vokal dari Musik Lagu Secara Cepat & Akurat 🎵
 
-Aplikasi web modern untuk memisahkan suara vokal dari instrumen / musik lagu secara instan. Dilengkapi dengan kontrol pemutar lagu mandiri, mixer audio interaktif, pemutar demo lagu bawaan, dan fitur ekspor ZIP 1-klik.
+Aplikasi web modern untuk memisahkan suara vokal dari instrumen / musik lagu secara instan. Dilengkapi dengan kontrol pemutar lagu mandiri, mixer audio interaktif, dan fitur ekspor ZIP 1-klik.
 
 [Fitur Utama](#-fitur-utama) • [Cara Menjalankan](#-cara-menjalankan-aplikasi) • [Kontrol Pemutar & Mixer](#-kontrol-pemutar--mixer) • [Installer Offline](#-paket-installer-offline-perangkat-lain) • [Struktur Proyek](#-struktur-proyek)
 
@@ -206,8 +206,6 @@ App-VoiceRemover/
 ├── tunnel/                       # Konfigurasi Cloudflare Tunnel
 │   └── cloudflared-config.example.yml
 ├── public/                       # Frontend Web App
-│   ├── audio/
-│   │   └── demo_song.mp3         # Lagu demo sampel stereo
 │   ├── css/
 │   │   └── styles.css            # Desain tampilan UI tema gelap & glassmorphism
 │   ├── js/

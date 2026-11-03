@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadArea: document.getElementById('uploadArea'),
     fileInput: document.getElementById('fileInput'),
     uploadBtn: document.getElementById('uploadBtn'),
-    demoBtn: document.getElementById('demoBtn'),
     uploadSection: document.getElementById('uploadSection'),
     optionsPanel: document.getElementById('optionsPanel'),
 
@@ -102,14 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       els.fileInput.click();
     });
-
-    // Demo Button
-    if (els.demoBtn) {
-      els.demoBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await loadDemoSong();
-      });
-    }
 
     els.uploadArea.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -209,21 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
         els.mobileMenuBtn.classList.remove('active');
       });
     });
-  }
-
-  // === Load Demo Song ===
-  async function loadDemoSong() {
-    try {
-      showToast('Memuat lagu demo sampel...', 'info');
-      const response = await fetch('/audio/demo_song.mp3');
-      if (!response.ok) throw new Error('Demo song file not found');
-      const blob = await response.blob();
-      const file = new File([blob], 'Lagu_Sampel_FYJ_Voice.mp3', { type: 'audio/mpeg' });
-      handleFileSelect(file);
-    } catch (err) {
-      console.error(err);
-      showToast('Gagal memuat lagu sampel', 'error');
-    }
   }
 
   // === File Selection ===

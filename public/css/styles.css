@@ -548,32 +548,6 @@ img {
   height: 20px;
 }
 
-.demo-trigger-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  padding: 8px 18px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(139, 92, 246, 0.3);
-  border-radius: var(--radius-full);
-  color: var(--primary-light);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition-normal);
-}
-
-.demo-trigger-btn:hover {
-  background: rgba(139, 92, 246, 0.15);
-  border-color: var(--primary);
-  transform: translateY(-1px);
-}
-
-.demo-sparkle {
-  font-size: 1rem;
-}
-
 /* === Options Panel === */
 .options-panel {
   margin-top: 24px;
