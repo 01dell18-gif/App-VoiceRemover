@@ -228,19 +228,24 @@ async function findPythonAndDemucs() {
     }
 
     // Tahap 3: Cek apakah audio-separator (UVR MDX-Net) terpasang (Windows, Linux, Docker)
-    const scriptsDir = path.join(path.dirname(pythonCmd), 'Scripts');
-    const uvrExeWin = path.join(scriptsDir, 'audio-separator.exe');
-    const uvrExeLin = path.join(path.dirname(pythonCmd), 'audio-separator');
+    let uvrDetected = false;
+    
+    // Coba temukan audio-separator executable di Python Scripts
+    const scriptsDirWin = path.join(path.dirname(pythonCmd), 'Scripts', 'audio-separator.exe');
+    const scriptsDirLin = path.join(path.dirname(pythonCmd), 'audio-separator');
 
-    if (fs.existsSync(uvrExeWin)) {
-      uvrExec = { cmd: uvrExeWin, args: [] };
+    if (fs.existsSync(scriptsDirWin)) {
+      uvrExec = { cmd: scriptsDirWin, args: [] };
       uvrAvailable = true;
-      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${uvrExeWin}`);
-    } else if (fs.existsSync(uvrExeLin)) {
-      uvrExec = { cmd: uvrExeLin, args: [] };
+      uvrDetected = true;
+      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${scriptsDirWin}`);
+    } else if (fs.existsSync(scriptsDirLin)) {
+      uvrExec = { cmd: scriptsDirLin, args: [] };
       uvrAvailable = true;
-      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${uvrExeLin}`);
+      uvrDetected = true;
+      console.log(`✅ Mesin AI UVR MDX-Net Studio aktif: ${scriptsDirLin}`);
     } else {
+      // Coba periksa apakah audio-separator ada di system PATH
       try {
         await new Promise((resolve, reject) => {
           exec('audio-separator --version', (err) => {
@@ -250,28 +255,33 @@ async function findPythonAndDemucs() {
         });
         uvrExec = { cmd: 'audio-separator', args: [] };
         uvrAvailable = true;
+        uvrDetected = true;
         console.log(`✅ Mesin AI UVR MDX-Net Studio aktif via system PATH`);
-      } catch (e) {
-        try {
-          await new Promise((resolve, reject) => {
-            exec(`"${pythonCmd}" -m audio_separator.utils.cli --version`, (err) => {
-              if (err) reject(err);
-              else resolve(true);
-            });
+      } catch (e) {}
+    }
+
+    // Jika belum terdeteksi, coba jalankan via Python code entrypoint
+    if (!uvrDetected) {
+      try {
+        await new Promise((resolve, reject) => {
+          exec(`"${pythonCmd}" -c "import audio_separator; import sys; sys.exit(0)"`, (err) => {
+            if (err) reject(err);
+            else resolve(true);
           });
-          let pyBin = pythonCmd;
-          let pyPrefixArgs = [];
-          if (pythonCmd.startsWith('py -')) {
-            const parts = pythonCmd.split(' ');
-            pyBin = parts[0];
-            pyPrefixArgs = parts.slice(1);
-          }
-          uvrExec = { cmd: pyBin, args: [...pyPrefixArgs, '-m', 'audio_separator.utils.cli'] };
-          uvrAvailable = true;
-          console.log(`✅ Mesin AI UVR MDX-Net Studio aktif via modul Python`);
-        } catch (e2) {
-          uvrAvailable = false;
+        });
+        let pyBin = pythonCmd;
+        let pyPrefixArgs = [];
+        if (pythonCmd.startsWith('py -')) {
+          const parts = pythonCmd.split(' ');
+          pyBin = parts[0];
+          pyPrefixArgs = parts.slice(1);
         }
+        uvrExec = { cmd: pyBin, args: [...pyPrefixArgs, '-c', 'from audio_separator.utils.cli import main; main()'] };
+        uvrAvailable = true;
+        uvrDetected = true;
+        console.log(`✅ Mesin AI UVR MDX-Net Studio aktif via modul Python`);
+      } catch (e2) {
+        uvrAvailable = false;
       }
     }
   }
@@ -641,9 +651,16 @@ async function processAudio(jobId, jobInfo) {
   try {
     emitProgress(jobId, 10, 'Menganalisis file audio...');
 
-    // Untuk pemisahan Vokal & Musik (2 track), gunakan UVR MDX-Net jika tersedia (zero-bleed)
-    if (jobInfo.separationType === 'vocals_music' && uvrAvailable) {
-      await processWithUVR(jobId, jobInfo, outputDir);
+    // Untuk pemisahan Vokal & Musik (2 track), prioritaskan AI Demucs htdemucs_ft (Zero Bleed Acapella & Karaoke)
+    // atau AI UVR MDX-Net Studio Quality jika tersedia
+    if (jobInfo.separationType === 'vocals_music') {
+      if (demucsAvailable) {
+        await processWithDemucs(jobId, jobInfo, outputDir);
+      } else if (uvrAvailable) {
+        await processWithUVR(jobId, jobInfo, outputDir);
+      } else {
+        await processWithFFmpeg(jobId, jobInfo, outputDir);
+      }
     } else if (demucsAvailable) {
       await processWithDemucs(jobId, jobInfo, outputDir);
     } else {
@@ -852,7 +869,7 @@ async function createCombinedInstrumental(outputDir, jobInfo) {
         ffmpegArgs.push('-i', f);
       });
       ffmpegArgs.push(
-        '-filter_complex', `amix=inputs=${nonVocalFiles.length}:normalize=0`,
+        '-filter_complex', `amix=inputs=${nonVocalFiles.length}:normalize=0,alimiter=limit=0.98`,
         '-b:a', '320k',
         '-y', destPath
       );
@@ -911,23 +928,23 @@ async function processWithFFmpeg(jobId, jobInfo, outputDir) {
       '-y', vocalsPath
     ]);
   } else {
-    // 1. Ekstrak Musik / Instrumental untuk STEREO (Out-of-phase center vocal cancellation + Bass preservation)
+    // 1. Ekstrak Musik / Instrumental untuk STEREO (Center Vocal Elimination + Bass Preservation + Limiter)
     emitProgress(jobId, 45, 'Mengekstrak Musik / Instrumental (Karaoke)...');
     await runFFmpeg([
       '-i', inputFile,
       '-filter_complex',
-      '[0:a]asplit=2[low][high];[low]lowpass=f=160,volume=1.0[bass];[high]highpass=f=160,pan=stereo|c0=0.5*c0-0.5*c1|c1=0.5*c1-0.5*c0,equalizer=f=1100:width_type=o:w=2.0:g=-10,equalizer=f=2800:width_type=o:w=1.6:g=-8[sides];[bass][sides]amix=inputs=2:weights=1.0 1.0:normalize=0[out]',
+      '[0:a]asplit=2[low][high];[low]lowpass=f=180,volume=1.0[bass];[high]highpass=f=180,pan=stereo|c0=0.5*c0-0.5*c1|c1=0.5*c1-0.5*c0,equalizer=f=1000:width_type=o:w=2.0:g=-12,equalizer=f=2500:width_type=o:w=1.8:g=-10[sides];[bass][sides]amix=inputs=2:weights=1.0 1.0:normalize=0,alimiter=limit=0.98[out]',
       '-map', '[out]',
       '-b:a', '192k',
       '-y', instrumentalPath
     ]);
 
-    // 2. Ekstrak Vokal untuk STEREO (Isolasi Vokal Tengah + Bandpass Filter)
+    // 2. Ekstrak Vokal untuk STEREO (Center Channel Isolation + Bandpass vocal presence + Limiter)
     emitProgress(jobId, 65, 'Mengekstrak Suara Vokal (Isolasi Frekuensi Vokal)...');
     await runFFmpeg([
       '-i', inputFile,
       '-filter_complex',
-      '[0:a]pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1,highpass=f=200,lowpass=f=4500,equalizer=f=1200:width_type=o:w=1.8:g=3,volume=1.3[vocal]',
+      '[0:a]pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1,highpass=f=220,lowpass=f=4000,equalizer=f=1200:width_type=o:w=1.8:g=4,volume=1.2,alimiter=limit=0.98[vocal]',
       '-map', '[vocal]',
       '-b:a', '192k',
       '-y', vocalsPath

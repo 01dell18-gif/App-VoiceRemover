@@ -564,10 +564,40 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function applyVolume(trackObj) {
+    if (!trackObj || !trackObj.audio) return;
+
     if (trackObj.isMuted) {
       trackObj.audio.volume = 0;
-    } else if (state.soloTrack && state.soloTrack !== trackObj.name) {
-      trackObj.audio.volume = 0;
+      return;
+    }
+
+    if (state.soloTrack) {
+      trackObj.audio.volume = (state.soloTrack === trackObj.name) ? trackObj.volume : 0;
+      return;
+    }
+
+    // Pemisahan ketat berdasarkan state.playbackMode agar suara vokal & musik murni tanpa bocor:
+    if (state.playbackMode === 'vocals') {
+      trackObj.audio.volume = (trackObj.name === 'vocals') ? trackObj.volume : 0;
+    } else if (state.playbackMode === 'instrumental') {
+      if (state.tracks['instrumental']) {
+        trackObj.audio.volume = (trackObj.name === 'instrumental') ? trackObj.volume : 0;
+      } else {
+        trackObj.audio.volume = (trackObj.name !== 'vocals' && trackObj.name !== 'original') ? trackObj.volume : 0;
+      }
+    } else if (state.playbackMode === 'original') {
+      trackObj.audio.volume = (trackObj.name === 'original') ? trackObj.volume : 0;
+    } else if (state.playbackMode === 'mix') {
+      if (trackObj.name === 'original') {
+        trackObj.audio.volume = 0;
+      } else if (trackObj.name === 'instrumental' && (state.tracks['drums'] || state.tracks['bass'] || state.tracks['other'])) {
+        trackObj.audio.volume = 0;
+      } else {
+        trackObj.audio.volume = trackObj.volume;
+      }
+    } else if (state.playbackMode && state.tracks[state.playbackMode]) {
+      // Pemutaran solo per-track (misal bass, drums, piano, dll.)
+      trackObj.audio.volume = (trackObj.name === state.playbackMode) ? trackObj.volume : 0;
     } else {
       trackObj.audio.volume = trackObj.volume;
     }
@@ -597,19 +627,20 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       t.audio.addEventListener('timeupdate', () => {
-        if ((state.currentPlaying === t.name || (state.currentPlaying === 'master' && t === state.primaryTrack)) && t.audio.duration) {
+        // Perbarui scrubber & penunjuk waktu jika track ini yang sedang berbunyi aktif
+        const isActiveCurrent = (state.currentPlaying === t.name) ||
+          (state.isPlaying && (t.name === state.playbackMode || (state.playbackMode === 'mix' && (t.name === 'vocals' || t === state.primaryTrack))));
+
+        if (isActiveCurrent && t.audio.duration && !t.audio.paused) {
           state.currentTime = t.audio.currentTime;
           const percent = (t.audio.currentTime / t.audio.duration) * 100;
-          els.masterScrubber.value = percent;
-          els.currentTime.textContent = formatTime(t.audio.currentTime);
+          if (els.masterScrubber) els.masterScrubber.value = percent;
+          if (els.currentTime) els.currentTime.textContent = formatTime(t.audio.currentTime);
         }
       });
 
       t.audio.addEventListener('ended', () => {
-        if (state.currentPlaying === t.name) {
-          pauseSingleTrack(t.name);
-          seekAllTracks(0);
-        } else if (state.currentPlaying === 'master' && t === state.primaryTrack) {
+        if (state.currentPlaying === t.name || (state.isPlaying && (t.name === state.playbackMode || t === state.primaryTrack))) {
           stopAllTracks();
         }
       });
@@ -642,6 +673,8 @@ document.addEventListener('DOMContentLoaded', () => {
         playInstrumentalOnly();
       } else if (mode === 'vocals') {
         playSingleTrack('vocals');
+      } else if (mode === 'original') {
+        playSingleTrack('original');
       } else if (state.tracks[mode]) {
         playSingleTrack(mode);
       }
@@ -721,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Respon antarmuka seketika tanpa jeda
     state.isPlaying = true;
-    state.currentPlaying = 'instrumental_mix';
+    state.currentPlaying = 'instrumental';
     updateMasterPlayButton(true);
 
     Object.values(state.tracks).forEach(t => {
@@ -758,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Respon antarmuka seketika tanpa jeda
     state.isPlaying = true;
-    state.currentPlaying = 'master';
+    state.currentPlaying = 'mix';
     updateMasterPlayButton(true);
 
     // Putar hanya stem hasil pemisahan (tanpa duplikasi instrumental gabungan)
@@ -828,7 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     track.audio.playbackRate = state.tempo || 1.0;
-    track.audio.volume = track.isMuted ? 0 : track.volume;
+    applyVolume(track);
 
     // 4. Langsung putar audio seketika
     const playPromise = track.audio.play();

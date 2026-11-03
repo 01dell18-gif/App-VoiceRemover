@@ -143,7 +143,7 @@ if not errorlevel 1 (
     echo [!] Mesin Demucs belum aktif.
 )
 
-"%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
+"%PY_CMD%" -c "import audio_separator; import sys; sys.exit(0)" >nul 2>&1
 if not errorlevel 1 (
     set "UVR_OK=1"
     echo [OK] Mesin AI UVR MDX-Net SIAP! [Isolasi Vokal dan Musik Zero-Bleed]

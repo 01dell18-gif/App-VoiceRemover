@@ -260,7 +260,7 @@ set "UVR_READY=0"
 "%PY_CMD%" -m demucs --help >nul 2>&1
 if not errorlevel 1 set "DEMUCS_READY=1"
 
-"%PY_CMD%" -m audio_separator.utils.cli --version >nul 2>&1
+"%PY_CMD%" -c "import audio_separator; import sys; sys.exit(0)" >nul 2>&1
 if not errorlevel 1 set "UVR_READY=1"
 
 if "%DEMUCS_READY%"=="1" if "%UVR_READY%"=="1" (
