@@ -27,9 +27,10 @@ set "PILIHAN="
 set /p "PILIHAN=Masukkan nomor pilihan (1-8): "
 
 if not defined PILIHAN (
-    echo [!] Tidak ada pilihan dimasukkan.
-    timeout /t 2 >nul 2>&1
-    exit /b 0
+    echo.
+    echo [!] Tidak ada pilihan dimasukkan. Silakan pilih nomor 1 sampai 8.
+    pause
+    goto :menu
 )
 
 if "%PILIHAN%"=="1" goto :setup_env
@@ -39,9 +40,15 @@ if "%PILIHAN%"=="4" goto :nginx_guide
 if "%PILIHAN%"=="5" goto :caddy_guide
 if "%PILIHAN%"=="6" goto :test_domain
 if "%PILIHAN%"=="7" goto :open_markdown
-if "%PILIHAN%"=="8" exit /b 0
+if "%PILIHAN%"=="8" (
+    echo.
+    echo Sampai jumpa! Menutup menu konfigurasi domain...
+    timeout /t 2 >nul 2>&1
+    exit /b 0
+)
 
-echo [!] Pilihan tidak valid. Silakan pilih 1-8.
+echo.
+echo [!] Pilihan tidak valid. Silakan pilih nomor 1 sampai 8.
 pause
 goto :menu
 
@@ -49,7 +56,9 @@ goto :menu
 echo.
 echo [*] Memulai server FYJ Channel Voice via start.bat...
 start "" "%~dp0start.bat"
-exit /b 0
+echo Server web telah dijalankan di jendela baru.
+pause
+goto :menu
 
 :setup_env
 cls
@@ -65,7 +74,7 @@ set "USER_DOMAIN="
 set /p "USER_DOMAIN=Nama Domain: "
 if "%USER_DOMAIN%"=="" (
     echo [!] Nama domain tidak boleh kosong.
-    timeout /t 2 >nul 2>&1
+    pause
     goto :menu
 )
 
@@ -115,6 +124,8 @@ set /p "RUN_NOW=Apakah Anda ingin langsung memulai aplikasi web sekarang? (Y/T) 
 if /i not "!RUN_NOW!"=="t" (
     echo [*] Membuka start.bat...
     start "" "%~dp0start.bat"
+    echo Aplikasi telah dijalankan di jendela baru.
+    pause
     exit /b 0
 )
 goto :menu
@@ -207,6 +218,7 @@ if "%CHECK_DOMAIN%"=="" (
 ) else (
     echo Domain terdaftar di .env: %CHECK_DOMAIN%
     echo Tekan Enter untuk menguji domain ini, atau ketik domain lain:
+    set "ALT_DOMAIN="
     set /p "ALT_DOMAIN="
     if not "!ALT_DOMAIN!"=="" set "CHECK_DOMAIN=!ALT_DOMAIN!"
 )
@@ -231,7 +243,7 @@ goto :menu
 if exist "%~dp0PANDUAN_DOMAIN.md" (
     start "" "%~dp0PANDUAN_DOMAIN.md"
 ) else (
-    echo File PANDUAN_DOMAIN.md belum ditemukan.
+    echo [!] File PANDUAN_DOMAIN.md belum ditemukan.
+    pause
 )
 goto :menu
-

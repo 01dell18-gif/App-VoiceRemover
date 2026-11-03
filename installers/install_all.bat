@@ -46,12 +46,23 @@ if not errorlevel 1 set "NODE_CMD=node"
 if not defined NODE_CMD (
     if exist "%ProgramFiles%\nodejs\node.exe" (
         set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
-    ) else if exist "%LocalAppData%\Programs\nodejs\node.exe" (
+    )
+    if exist "%ProgramW6432%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramW6432%\nodejs\node.exe"
+    )
+    if exist "C:\Program Files\nodejs\node.exe" (
+        set "NODE_CMD=C:\Program Files\nodejs\node.exe"
+    )
+    if exist "%LocalAppData%\Programs\nodejs\node.exe" (
         set "NODE_CMD=%LocalAppData%\Programs\nodejs\node.exe"
+    )
+    if exist "%SystemDrive%\Program Files (x86)\nodejs\node.exe" (
+        set "NODE_CMD=%SystemDrive%\Program Files (x86)\nodejs\node.exe"
     )
 )
 
 if defined NODE_CMD (
+    set "NODE_VER=Aktif"
     for /f "tokens=*" %%v in ('"%NODE_CMD%" -v 2^>nul') do set "NODE_VER=%%v"
     echo [OK] Node.js sudah terpasang: %NODE_VER%
 ) else (
@@ -60,8 +71,13 @@ if defined NODE_CMD (
         echo [*] Memulai pemasangan Node.js dari installer offline...
         start /wait msiexec /i "%~dp0node-v20.18.0-x64.msi" /passive
         set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
-        if exist "%ProgramFiles%\nodejs\node.exe" (
-            set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+        if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+        if exist "%ProgramW6432%\nodejs\node.exe" set "NODE_CMD=%ProgramW6432%\nodejs\node.exe"
+        if exist "C:\Program Files\nodejs\node.exe" set "NODE_CMD=C:\Program Files\nodejs\node.exe"
+        if exist "%LocalAppData%\Programs\nodejs\node.exe" set "NODE_CMD=%LocalAppData%\Programs\nodejs\node.exe"
+        where node >nul 2>&1
+        if not errorlevel 1 if not defined NODE_CMD set "NODE_CMD=node"
+        if defined NODE_CMD (
             echo [OK] Node.js berhasil dipasang!
         )
     ) else (
@@ -135,25 +151,36 @@ if exist "%ProgramFiles%\Python311\python.exe" (
     set "PY_CMD=%ProgramFiles%\Python311\python.exe"
     goto :py_ready
 )
+if exist "%ProgramW6432%\Python311\python.exe" (
+    set "PY_CMD=%ProgramW6432%\Python311\python.exe"
+    goto :py_ready
+)
 
 where py >nul 2>&1
 if not errorlevel 1 (
-    py -3.11 -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
-    if not errorlevel 1 (
-        set "PY_CMD=py -3.11"
+    for /f "tokens=*" %%x in ('py -3.11 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
+        goto :py_ready
+    )
+    for /f "tokens=*" %%x in ('py -3.10 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
+        goto :py_ready
+    )
+    for /f "tokens=*" %%x in ('py -3.12 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
         goto :py_ready
     )
 )
 
 where python >nul 2>&1
 if not errorlevel 1 (
-    python -c "import sys; sys.exit(0 if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else 1)" >nul 2>&1
-    if not errorlevel 1 (
-        set "PY_CMD=python"
-        goto :py_ready
-    ) else (
-        echo [!] Python di PATH tidak kompatibel dengan library AI.
+    for /f "tokens=*" %%x in ('python -c "import sys; sys.stdout.write(sys.executable if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else '')" 2^>nul') do (
+        if not "%%x"=="" (
+            set "PY_CMD=%%x"
+            goto :py_ready
+        )
     )
+    echo [!] Python di PATH tidak kompatibel dengan library AI.
 )
 
 if exist "%~dp0python-3.11.9-amd64.exe" (
@@ -162,11 +189,17 @@ if exist "%~dp0python-3.11.9-amd64.exe" (
     if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
         set "PY_CMD=%LocalAppData%\Programs\Python\Python311\python.exe"
         echo [OK] Python 3.11.9 berhasil dipasang!
-    ) else if exist "C:\Python311\python.exe" (
+    )
+    if exist "C:\Python311\python.exe" (
         set "PY_CMD=C:\Python311\python.exe"
         echo [OK] Python 3.11.9 berhasil dipasang!
-    ) else if exist "%ProgramFiles%\Python311\python.exe" (
+    )
+    if exist "%ProgramFiles%\Python311\python.exe" (
         set "PY_CMD=%ProgramFiles%\Python311\python.exe"
+        echo [OK] Python 3.11.9 berhasil dipasang!
+    )
+    if exist "%ProgramW6432%\Python311\python.exe" (
+        set "PY_CMD=%ProgramW6432%\Python311\python.exe"
         echo [OK] Python 3.11.9 berhasil dipasang!
     )
 ) else (
@@ -175,6 +208,7 @@ if exist "%~dp0python-3.11.9-amd64.exe" (
 
 :py_ready
 if defined PY_CMD (
+    set "PY_VER=Python Siap"
     for /f "tokens=*" %%p in ('"%PY_CMD%" --version 2^>nul') do set "PY_VER=%%p"
     echo [OK] Python siap: %PY_VER%
 ) else (
@@ -202,8 +236,11 @@ set /p "START_APP=Apakah Anda ingin langsung menjalankan aplikasi web sekarang? 
 if /i not "%START_APP%"=="t" (
     echo [*] Memulai server FYJ Channel Voice via start.bat...
     start "" "%~dp0..\start.bat"
+    echo Server web telah dijalankan di jendela baru.
+    pause
     exit /b 0
 )
 echo.
 echo Untuk memulai aplikasi nanti, silakan jalankan start.bat di folder utama.
 pause
+exit /b 0

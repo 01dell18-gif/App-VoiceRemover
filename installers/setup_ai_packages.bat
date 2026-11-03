@@ -38,13 +38,32 @@ if exist "%ProgramFiles%\Python311\python.exe" (
     set "PY_CMD=%ProgramFiles%\Python311\python.exe"
     goto :python_ready
 )
+if exist "%ProgramW6432%\Python311\python.exe" (
+    set "PY_CMD=%ProgramW6432%\Python311\python.exe"
+    goto :python_ready
+)
+if exist "%LocalAppData%\Programs\Python\Python310\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python310\python.exe"
+    goto :python_ready
+)
+if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
+    set "PY_CMD=%LocalAppData%\Programs\Python\Python312\python.exe"
+    goto :python_ready
+)
 
-REM Prioritas 2: py launcher 3.11
+REM Prioritas 2: py launcher (mengambil path absolut python.exe)
 where py >nul 2>&1
 if not errorlevel 1 (
-    py -3.11 -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
-    if not errorlevel 1 (
-        set "PY_CMD=py -3.11"
+    for /f "tokens=*" %%x in ('py -3.11 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
+        goto :python_ready
+    )
+    for /f "tokens=*" %%x in ('py -3.10 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
+        goto :python_ready
+    )
+    for /f "tokens=*" %%x in ('py -3.12 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
         goto :python_ready
     )
 )
@@ -52,13 +71,13 @@ if not errorlevel 1 (
 REM Prioritas 3: Cek apakah python di system PATH kompatibel (Python 3.9 s.d 3.12 64-bit)
 where python >nul 2>&1
 if not errorlevel 1 (
-    python -c "import sys; sys.exit(0 if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else 1)" >nul 2>&1
-    if not errorlevel 1 (
-        set "PY_CMD=python"
-        goto :python_ready
-    ) else (
-        echo [!] Python di PATH tidak kompatibel dengan modul AI - Ditemukan versi non-standar.
+    for /f "tokens=*" %%x in ('python -c "import sys; sys.stdout.write(sys.executable if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else '')" 2^>nul') do (
+        if not "%%x"=="" (
+            set "PY_CMD=%%x"
+            goto :python_ready
+        )
     )
+    echo [!] Python di PATH tidak kompatibel dengan modul AI - Ditemukan versi non-standar.
 )
 
 REM Prioritas 4: Pasang Python 3.11.9 resmi dari folder installers
@@ -82,6 +101,11 @@ if exist "%~dp0python-3.11.9-amd64.exe" (
         echo [OK] Python 3.11.9 berhasil dipasang!
         goto :python_ready
     )
+    if exist "%ProgramW6432%\Python311\python.exe" (
+        set "PY_CMD=%ProgramW6432%\Python311\python.exe"
+        echo [OK] Python 3.11.9 berhasil dipasang!
+        goto :python_ready
+    )
 )
 
 echo [!] Python 3.11 yang kompatibel tidak dapat disiapkan.
@@ -90,6 +114,7 @@ if "%NO_PAUSE%"=="0" pause
 exit /b 1
 
 :python_ready
+set "PY_VER=Python Siap"
 for /f "tokens=*" %%v in ('"%PY_CMD%" --version 2^>nul') do set "PY_VER=%%v"
 echo [*] Menggunakan: %PY_VER% (%PY_CMD%)
 echo.
@@ -104,7 +129,11 @@ if exist "%WHEELS_DIR%\" (
 
     REM Gabungkan kembali PyTorch wheel jika belum ada
     if not exist "%WHEELS_DIR%\torch-2.15.0+cpu-cp311-cp311-win_amd64.whl" (
-        if exist "%WHEELS_DIR%\rejoin_torch.ps1" (
+        if exist "%WHEELS_DIR%\torch_cpu.part1" (
+            echo [*] Menggabungkan arsip PyTorch CPU wheel...
+            copy /b "%WHEELS_DIR%\torch_cpu.part1"+"%WHEELS_DIR%\torch_cpu.part2"+"%WHEELS_DIR%\torch_cpu.part3" "%WHEELS_DIR%\torch-2.15.0+cpu-cp311-cp311-win_amd64.whl" >nul 2>&1
+        )
+        if not exist "%WHEELS_DIR%\torch-2.15.0+cpu-cp311-cp311-win_amd64.whl" if exist "%WHEELS_DIR%\rejoin_torch.ps1" (
             powershell -NoProfile -ExecutionPolicy Bypass -File "%WHEELS_DIR%\rejoin_torch.ps1"
         )
     )

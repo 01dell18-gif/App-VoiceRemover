@@ -28,6 +28,18 @@ if exist "%ProgramFiles%\nodejs\node.exe" (
     goto :node_found
 )
 
+if exist "%ProgramW6432%\nodejs\node.exe" (
+    set "NODE_CMD=%ProgramW6432%\nodejs\node.exe"
+    set "PATH=%ProgramW6432%\nodejs;%APPDATA%\npm;%PATH%"
+    goto :node_found
+)
+
+if exist "C:\Program Files\nodejs\node.exe" (
+    set "NODE_CMD=C:\Program Files\nodejs\node.exe"
+    set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
+    goto :node_found
+)
+
 if exist "%LocalAppData%\Programs\nodejs\node.exe" (
     set "NODE_CMD=%LocalAppData%\Programs\nodejs\node.exe"
     set "PATH=%LocalAppData%\Programs\nodejs;%APPDATA%\npm;%PATH%"
@@ -50,26 +62,52 @@ echo.
 
 where winget >nul 2>&1
 if not errorlevel 1 (
-    echo  [*] Memasang Node.js LTS via winget...
+    echo  [*] Mencoba memasang Node.js LTS via winget...
     winget install OpenJS.NodeJS.LTS -e --silent --accept-source-agreements --accept-package-agreements
     if exist "%ProgramFiles%\nodejs\node.exe" (
         set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
         set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
         goto :node_found
     )
+    if exist "%ProgramW6432%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramW6432%\nodejs\node.exe"
+        set "PATH=%ProgramW6432%\nodejs;%APPDATA%\npm;%PATH%"
+        goto :node_found
+    )
 )
 
 if exist "%~dp0installers\node-v20.18.0-x64.msi" (
     echo  [*] Menjalankan paket installer Node.js dari folder installers...
-    start /wait msiexec /i "%~dp0installers\node-v20.18.0-x64.msi"
+    start /wait msiexec /i "%~dp0installers\node-v20.18.0-x64.msi" /passive
     set "PATH=%ProgramFiles%\nodejs;%APPDATA%\npm;%PATH%"
     if exist "%ProgramFiles%\nodejs\node.exe" (
         set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
         goto :node_found
     )
+    if exist "%ProgramW6432%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramW6432%\nodejs\node.exe"
+        goto :node_found
+    )
+    if exist "C:\Program Files\nodejs\node.exe" (
+        set "NODE_CMD=C:\Program Files\nodejs\node.exe"
+        goto :node_found
+    )
+    if exist "%LocalAppData%\Programs\nodejs\node.exe" (
+        set "NODE_CMD=%LocalAppData%\Programs\nodejs\node.exe"
+        goto :node_found
+    )
+    where node >nul 2>&1
+    if not errorlevel 1 (
+        set "NODE_CMD=node"
+        goto :node_found
+    )
 )
 
-echo  Membuka halaman download Node.js resmi di peramban Anda...
+echo.
+echo ======================================================================
+echo  [!] Node.js belum dapat disiapkan secara otomatis.
+echo  Membuka halaman download Node.js resmi di browser Anda...
+echo ======================================================================
 start https://nodejs.org/en/download/
 echo  Silakan unduh dan pasang Node.js LTS, lalu jalankan kembali start.bat ini.
 echo.
@@ -77,7 +115,8 @@ pause
 exit /b 1
 
 :node_found
-for /f "tokens=*" %%v in ('"%NODE_CMD%" -v') do set "NODE_VER=%%v"
+set "NODE_VER=Aktif"
+for /f "tokens=*" %%v in ('"%NODE_CMD%" -v 2^>nul') do set "NODE_VER=%%v"
 echo [OK] Node.js siap: %NODE_VER%
 echo.
 
@@ -91,9 +130,9 @@ if exist "%~dp0installers\node_modules.zip" (
     echo  [*] Menyiapkan paket node_modules dari folder installers [Offline]...
     where tar >nul 2>&1
     if not errorlevel 1 (
-        tar -xf "%~dp0installers\node_modules.zip" >nul 2>&1
+        tar -xf "%~dp0installers\node_modules.zip" -C "%~dp0" >nul 2>&1
     ) else (
-        powershell -NoProfile -Command "Expand-Archive -Path '%~dp0installers\node_modules.zip' -DestinationPath '%~dp0.' -Force" >nul 2>&1
+        powershell -NoProfile -Command "Expand-Archive -Path '%~dp0installers\node_modules.zip' -DestinationPath '%~dp0' -Force" >nul 2>&1
     )
     if exist "%~dp0node_modules\" (
         echo [OK] Paket node_modules offline berhasil diekstrak!
@@ -112,6 +151,21 @@ if not errorlevel 1 (
 
 if exist "%ProgramFiles%\nodejs\npm.cmd" (
     call "%ProgramFiles%\nodejs\npm.cmd" install
+    goto :check_npm_result
+)
+
+if exist "%ProgramW6432%\nodejs\npm.cmd" (
+    call "%ProgramW6432%\nodejs\npm.cmd" install
+    goto :check_npm_result
+)
+
+if exist "C:\Program Files\nodejs\npm.cmd" (
+    call "C:\Program Files\nodejs\npm.cmd" install
+    goto :check_npm_result
+)
+
+if exist "%LocalAppData%\Programs\nodejs\npm.cmd" (
+    call "%LocalAppData%\Programs\nodejs\npm.cmd" install
     goto :check_npm_result
 )
 
@@ -193,6 +247,10 @@ if exist "%ProgramFiles%\Python311\python.exe" (
     set "PY_CMD=%ProgramFiles%\Python311\python.exe"
     goto :python_found
 )
+if exist "%ProgramW6432%\Python311\python.exe" (
+    set "PY_CMD=%ProgramW6432%\Python311\python.exe"
+    goto :python_found
+)
 if exist "%LocalAppData%\Programs\Python\Python310\python.exe" (
     set "PY_CMD=%LocalAppData%\Programs\Python\Python310\python.exe"
     goto :python_found
@@ -202,12 +260,19 @@ if exist "%LocalAppData%\Programs\Python\Python312\python.exe" (
     goto :python_found
 )
 
-REM Prioritas 2: py launcher 3.11
+REM Prioritas 2: py launcher (mengambil path absolut python.exe)
 where py >nul 2>&1
 if not errorlevel 1 (
-    py -3.11 -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
-    if not errorlevel 1 (
-        set "PY_CMD=py -3.11"
+    for /f "tokens=*" %%x in ('py -3.11 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
+        goto :python_found
+    )
+    for /f "tokens=*" %%x in ('py -3.10 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
+        goto :python_found
+    )
+    for /f "tokens=*" %%x in ('py -3.12 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "PY_CMD=%%x"
         goto :python_found
     )
 )
@@ -215,13 +280,13 @@ if not errorlevel 1 (
 REM Prioritas 3: Cek apakah python di system PATH kompatibel dengan PyTorch (Python 3.9 - 3.12 64-bit)
 where python >nul 2>&1
 if not errorlevel 1 (
-    python -c "import sys; sys.exit(0 if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else 1)" >nul 2>&1
-    if not errorlevel 1 (
-        set "PY_CMD=python"
-        goto :python_found
-    ) else (
-        echo  [!] Python di PATH tidak kompatibel dengan modul AI - Ditemukan versi non-standar.
+    for /f "tokens=*" %%x in ('python -c "import sys; sys.stdout.write(sys.executable if (3, 9) <= sys.version_info < (3, 13) and sys.maxsize > 2**32 else '')" 2^>nul') do (
+        if not "%%x"=="" (
+            set "PY_CMD=%%x"
+            goto :python_found
+        )
     )
+    echo  [!] Python di PATH tidak kompatibel dengan modul AI - Ditemukan versi non-standar.
 )
 
 REM Prioritas 4: Pasang Python 3.11.9 64-bit resmi dari folder installers
@@ -245,12 +310,18 @@ if exist "%~dp0installers\python-3.11.9-amd64.exe" (
         echo  [OK] Python 3.11.9 berhasil dipasang di komputer ini!
         goto :python_found
     )
+    if exist "%ProgramW6432%\Python311\python.exe" (
+        set "PY_CMD=%ProgramW6432%\Python311\python.exe"
+        echo  [OK] Python 3.11.9 berhasil dipasang di komputer ini!
+        goto :python_found
+    )
 )
 
 echo  [INFO] Python 3.11 belum siap. Menggunakan mode internal FFmpeg DSP (Aplikasi tetap berjalan normal).
 goto :network_detect
 
 :python_found
+set "PY_VER=Python Siap"
 for /f "tokens=*" %%p in ('"%PY_CMD%" --version 2^>nul') do set "PY_VER=%%p"
 echo [OK] Python terdeteksi: %PY_VER%
 
@@ -275,8 +346,14 @@ if exist "%~dp0installers\setup_ai_packages.bat" (
     goto :ai_setup_done
 )
 if exist "%~dp0installers\wheels\" (
-    if exist "%~dp0installers\wheels\rejoin_torch.ps1" (
-        powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0installers\wheels\rejoin_torch.ps1"
+    if not exist "%~dp0installers\wheels\torch-2.15.0+cpu-cp311-cp311-win_amd64.whl" (
+        if exist "%~dp0installers\wheels\torch_cpu.part1" (
+            echo [*] Menggabungkan arsip PyTorch CPU wheel...
+            copy /b "%~dp0installers\wheels\torch_cpu.part1"+"%~dp0installers\wheels\torch_cpu.part2"+"%~dp0installers\wheels\torch_cpu.part3" "%~dp0installers\wheels\torch-2.15.0+cpu-cp311-cp311-win_amd64.whl" >nul 2>&1
+        )
+        if not exist "%~dp0installers\wheels\torch-2.15.0+cpu-cp311-cp311-win_amd64.whl" if exist "%~dp0installers\wheels\rejoin_torch.ps1" (
+            powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0installers\wheels\rejoin_torch.ps1"
+        )
     )
     "%PY_CMD%" -m pip install --no-index --find-links="%~dp0installers\wheels" --prefer-binary torch torchaudio numpy soundfile lameenc onnxruntime audio-separator demucs
     goto :ai_setup_done
@@ -338,9 +415,16 @@ echo.
 start "" /b cmd /c "ping 127.0.0.1 -n 3 >nul & start http://localhost:%APP_PORT%"
 
 "%NODE_CMD%" server.js
+if errorlevel 1 (
+    echo.
+    echo ======================================================================
+    echo  [!] Server berhenti dengan kesalahan [error code %errorlevel%].
+    echo ======================================================================
+)
 
 echo.
 echo ======================================================================
 echo Server telah berhenti.
 echo ======================================================================
 pause
+exit /b 0
